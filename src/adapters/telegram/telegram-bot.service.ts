@@ -68,20 +68,26 @@ export class TelegramBotService implements OnModuleInit, OnModuleDestroy {
       this.logger.error('GrammY error', stack);
     });
 
-    // Debug: log every received update (first 80 chars), so we can confirm
-    // polling is actually delivering messages when users report "no reaction".
-    // We intentionally log ONLY presence + truncated payload type, no PII.
+    // Debug: log every received update. Write directly to stdout (not Nest
+    // logger) so we can confirm polling is actually delivering messages
+    // regardless of the configured Nest log level.
+    // ONLY presence + truncated cmd text, NEVER PII.
     bot.use(async (ctx, next) => {
       const updateId = ctx.update?.update_id ?? 0;
       const hasMsg = Boolean(ctx.message);
       const hasCb = Boolean(ctx.callbackQuery);
+      const cmd = ctx.message?.text?.slice(0, 60) ?? '-';
+      const fromId = ctx.from?.id ?? 0;
       // eslint-disable-next-line no-console
-      console.debug(
-        `[grammY:rx] update=${updateId} msg=${hasMsg} cb=${hasCb} cmd=${
-          ctx.message?.text?.slice(0, 40) ?? '-'
-        }`,
+      console.log(
+        `[grammY:rx] update=${updateId} msg=${hasMsg} cb=${hasCb} from=${fromId} cmd="${cmd}"`,
       );
-      await next();
+      try {
+        await next();
+      } finally {
+        // eslint-disable-next-line no-console
+        console.log(`[grammY:tx-ok] update=${updateId} handled`);
+      }
     });
 
     // Commands

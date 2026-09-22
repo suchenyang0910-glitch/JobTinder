@@ -115,21 +115,25 @@ export class CandidateOnboardingService {
         },
       });
 
-      await this.audit.record({
-        actorId: user.id,
-        action: AuditActionEnum.PROFILE_DRAFT_CREATED,
-        objectType: 'candidate_profile',
-        objectId: row.id,
-        version: row.version,
-        now,
-        metadata: {
-          role: 'CANDIDATE',
-          draft_version: row.version,
-          source: input.source,
-          field_count: Object.values(fields).filter((v) => (Array.isArray(v) ? v.length > 0 : !!v))
-            .length,
+      await this.audit.record(
+        {
+          actorId: user.id,
+          action: AuditActionEnum.PROFILE_DRAFT_CREATED,
+          objectType: 'candidate_profile',
+          objectId: row.id,
+          version: row.version,
+          now,
+          metadata: {
+            role: 'CANDIDATE',
+            draft_version: row.version,
+            source: input.source,
+            field_count: Object.values(fields).filter((v) =>
+              Array.isArray(v) ? v.length > 0 : !!v,
+            ).length,
+          },
         },
-      });
+        tx,
+      );
       return row;
     });
 
@@ -186,19 +190,22 @@ export class CandidateOnboardingService {
         },
       });
 
-      await this.audit.record({
-        actorId: row.user_id,
-        action: AuditActionEnum.PROFILE_DRAFT_UPDATED,
-        objectType: 'candidate_profile',
-        objectId: updated.id,
-        version: updated.version,
-        now,
-        metadata: {
-          role: 'CANDIDATE',
-          draft_version: updated.version,
-          changed_fields: changedFields,
+      await this.audit.record(
+        {
+          actorId: row.user_id,
+          action: AuditActionEnum.PROFILE_DRAFT_UPDATED,
+          objectType: 'candidate_profile',
+          objectId: updated.id,
+          version: updated.version,
+          now,
+          metadata: {
+            role: 'CANDIDATE',
+            draft_version: updated.version,
+            changed_fields: changedFields,
+          },
         },
-      });
+        tx,
+      );
       return updated;
     });
 
@@ -295,19 +302,22 @@ export class CandidateOnboardingService {
         },
       });
 
-      await this.audit.record({
-        actorId: row.user_id,
-        action: AuditActionEnum.PROFILE_CONFIRMED,
-        objectType: 'candidate_profile',
-        objectId: updated.id,
-        version: updated.version,
-        now,
-        metadata: {
-          role: 'CANDIDATE',
-          new_version: updated.version,
-          changed_from_draft_fields: changed,
+      await this.audit.record(
+        {
+          actorId: row.user_id,
+          action: AuditActionEnum.PROFILE_CONFIRMED,
+          objectType: 'candidate_profile',
+          objectId: updated.id,
+          version: updated.version,
+          now,
+          metadata: {
+            role: 'CANDIDATE',
+            new_version: updated.version,
+            changed_from_draft_fields: changed,
+          },
         },
-      });
+        tx,
+      );
 
       // Outbox: (1) PROFILE_CONFIRMED
       const q1 = IdempotentKeyBuilder.notification({
@@ -392,19 +402,22 @@ export class CandidateOnboardingService {
         availableAfter: params.availableAfter,
         maxAttempts: params.maxAttempts,
       });
-      await this.audit.record({
-        actorId: params.actorId,
-        action: AuditActionEnum.NOTIFY_QUEUED,
-        objectType: 'notification',
-        objectId: row.id,
-        version: params.version,
-        now: params.now,
-        metadata: {
-          type: params.notificationType,
-          recipient_id: String(params.recipientId),
-          notification_id: String(row.id),
+      await this.audit.record(
+        {
+          actorId: params.actorId,
+          action: AuditActionEnum.NOTIFY_QUEUED,
+          objectType: 'notification',
+          objectId: row.id,
+          version: params.version,
+          now: params.now,
+          metadata: {
+            type: params.notificationType,
+            recipient_id: String(params.recipientId),
+            notification_id: String(row.id),
+          },
         },
-      });
+        tx,
+      );
     } catch (e) {
       this.logger.warn(
         `Outbox ${params.notificationType} enqueue failed`,

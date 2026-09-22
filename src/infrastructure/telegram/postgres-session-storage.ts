@@ -47,9 +47,7 @@ export class PostgresSessionStorage<S extends object> implements StorageAdapter<
       });
       if (!row) return this.memoryGet(key);
       if (row.expires_at.getTime() < this.clock.now().getTime()) {
-        void this.prisma.sessions
-          .delete({ where: { session_key: key } })
-          .catch(() => undefined);
+        void this.prisma.sessions.delete({ where: { session_key: key } }).catch(() => undefined);
         this.memory.delete(key);
         return undefined;
       }
@@ -124,7 +122,7 @@ export class PostgresSessionStorage<S extends object> implements StorageAdapter<
     // Evict oldest to keep bounded
     if (this.memory.size >= PostgresSessionStorage.FALLBACK_MAX) {
       const first = this.memory.keys().next();
-      if (!first.done) this.memory.delete(first.value as string);
+      if (!first.done) this.memory.delete(first.value);
     }
     this.memory.set(key, { data, expireAtMs });
   }

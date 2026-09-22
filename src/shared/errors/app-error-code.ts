@@ -68,6 +68,9 @@ export const AppErrorCode = {
   TRUST_BLOCKED: 'TRUST_BLOCKED',
   TRUST_REPORT_DUPLICATE: 'TRUST_REPORT_DUPLICATE',
 
+  // DB_* — infrastructure availability, surfaced to user as friendly retry prompt
+  DB_UNAVAILABLE_TRY_LATER: 'DB_UNAVAILABLE_TRY_LATER',
+
   // INTERNAL_*
   INTERNAL_UNKNOWN: 'INTERNAL_UNKNOWN',
   INTERNAL_DB_ERROR: 'INTERNAL_DB_ERROR',

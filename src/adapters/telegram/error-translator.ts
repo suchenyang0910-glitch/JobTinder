@@ -2,6 +2,38 @@ import type { AppErrorCodeType } from '@src/shared/errors/app-error-code';
 import { AppError } from '@src/shared/errors/app-error';
 import type { Translation } from '@src/shared/i18n/locales/en';
 
+/**
+ * Prisma engine-level connection codes that always mean "the DB is not ready
+ * right now". We deliberately convert these to a friendly retry prompt rather
+ * than the generic "Unexpected error" so that local developers (and real users
+ * during transient outages) get actionable guidance instead of silent failures.
+ */
+const DB_UNAVAIL_CODES = new Set(['P1000', 'P1001', 'P1002', 'P1003', 'P1008', 'P1017']);
+
+const DB_UNAVAIL_TEXT =
+  '⏳ Service warming up — database not ready yet.\n' +
+  'Please retry in 1 minute, or start a local Postgres instance\n' +
+  'with DATABASE_URL pointing to the "paperclip" database.\n' +
+  '(Your session is kept in memory for now, no data is lost.)';
+
+function looksLikeDbUnavailable(err: unknown): boolean {
+  if (!err) return false;
+  const code = (err as { code?: string }).code ?? (err as { errorCode?: string }).errorCode;
+  if (typeof code === 'string' && DB_UNAVAIL_CODES.has(code)) return true;
+  const name = (err as Error).name;
+  if (
+    name === 'PrismaClientInitializationError' ||
+    name === 'PrismaClientRustPanicError' ||
+    name === 'PrismaClientKnownRequestError'
+  ) {
+    const msg = (err as Error).message ?? '';
+    for (const c of DB_UNAVAIL_CODES) if (msg.includes(c)) return true;
+    if (msg.includes('Database `') && msg.includes(' does not exist')) return true;
+    if (msg.includes("Can't reach database server")) return true;
+  }
+  return false;
+}
+
 export function translateAppError(
   error: unknown,
   T: Translation,
@@ -11,7 +43,11 @@ export function translateAppError(
   if (code) {
     const known = lookup(code, T);
     if (known) return known;
-    return { text: T.ERRORS.default(), retryable: false };
+  }
+  // Prisma / engine layer transport errors: surface a retry prompt even when
+  // the raw exception never crossed the AppError boundary.
+  if (looksLikeDbUnavailable(error)) {
+    return { text: DB_UNAVAIL_TEXT, retryable: true };
   }
   return { text: T.ERRORS.default(), retryable: false };
 }
@@ -21,6 +57,15 @@ function lookup(
   T: Translation,
 ): { text: string; retryable: boolean } | null {
   switch (code) {
+    case 'DB_UNAVAILABLE_TRY_LATER':
+      return {
+        text:
+          '⏳ Service warming up — database not ready yet.\n' +
+          'Please retry in 1 minute, or start a local Postgres instance\n' +
+          'with DATABASE_URL pointing to the "paperclip" database.\n' +
+          '(Your session is kept in memory for now, no data is lost.)',
+        retryable: true,
+      };
     case 'AUTH_UNAUTHORIZED':
       return { text: T.ERRORS.AUTH_UNAUTHORIZED(), retryable: false };
     case 'PROFILE_NOT_FOUND':

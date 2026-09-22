@@ -30,7 +30,6 @@ async function bootstrap() {
     );
     app.enableShutdownHooks();
   } catch (bootstrapErr) {
-    // eslint-disable-next-line no-console
     console.error(
       '[FATAL] NestFactory.create failed — before Nest logger was ready:',
       bootstrapErr instanceof Error ? bootstrapErr.stack : String(bootstrapErr),

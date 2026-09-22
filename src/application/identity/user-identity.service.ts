@@ -103,17 +103,20 @@ export class UserIdentityService {
           updated_at: now,
         },
       });
-      await this.audit.record({
-        actorId: user.id,
-        action: AuditActionEnum.USER_CREATED,
-        objectType: 'user',
-        objectId: user.id,
-        now,
-        metadata: {
-          telegram_user_id_hash: this.fingerprint(String(tgUid)),
-          initial_language: user.language,
+      await this.audit.record(
+        {
+          actorId: user.id,
+          action: AuditActionEnum.USER_CREATED,
+          objectType: 'user',
+          objectId: user.id,
+          now,
+          metadata: {
+            telegram_user_id_hash: this.fingerprint(String(tgUid)),
+            initial_language: user.language,
+          },
         },
-      });
+        tx,
+      );
       return user;
     });
 
