@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Inject, Injectable, Logger } from '@nestjs/common';
 import { z } from 'zod';
 import type { Language } from '@prisma/client';
 import type { AIExtractProvider } from '@src/domain/trust/ai-extract-provider';
@@ -34,7 +34,7 @@ export class CrawlerTranslationService {
   private readonly logger = new Logger(CrawlerTranslationService.name);
   public readonly TRANSLATION_VERSION = '1.0';
 
-  constructor(private readonly aiProvider: AIExtractProvider) {}
+  constructor(@Inject(AI_PROVIDER_TOKEN) private readonly aiProvider: AIExtractProvider) {}
 
   private targetLanguagesFor(source: DetectedLanguage): Language[] {
     const all: Language[] = ['km', 'en', 'zh_CN'];
