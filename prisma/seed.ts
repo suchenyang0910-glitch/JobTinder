@@ -204,38 +204,54 @@ async function main() {
   });
   console.log(`[seed] cand2 draft id=${String(cand2Profile.id)}`);
 
-  // ---- Demo crawl sources (3) — public real-world Khmer job portals for stage-1.
-  // Robots status = UNCHECKED; use STATIC_HTML parser for all three.
+  // ---- Demo crawl sources (3) — stage-2: pending review (enabled=false by default).
+  // Only PENDING + APPROVED + enabled=true are executed by crawler cron.
   const sourcesSpec: {
     name: string;
     baseUrl: string;
     jobsUrl: string;
+    sourceType: string;
     parserType: 'STATIC_HTML' | 'MANUAL' | 'PLAYWRIGHT' | 'FIRECRAWL';
     intervalMin: number;
+    discoveryMethod: string;
+    city: string;
+    industry: string;
     companyId?: bigint;
   }[] = [
     {
       name: 'Demo Static Khmer Jobs (STATIC_HTML)',
       baseUrl: 'https://demo-jobtinder.example.invalid',
       jobsUrl: 'https://demo-jobtinder.example.invalid/jobs',
+      sourceType: 'OFFICIAL_COMPANY_WEBSITE',
       parserType: 'STATIC_HTML',
       intervalMin: 360,
+      discoveryMethod: 'manual_seed',
+      city: 'Phnom Penh',
+      industry: 'Technology',
       companyId: company?.id,
     },
     {
       name: 'Cafe Happy Cup Careers (STATIC_HTML)',
       baseUrl: 'https://demo-jobtinder.example.invalid/cafe',
       jobsUrl: 'https://demo-jobtinder.example.invalid/cafe/careers',
+      sourceType: 'OFFICIAL_COMPANY_WEBSITE',
       parserType: 'STATIC_HTML',
       intervalMin: 720,
+      discoveryMethod: 'cambodia_chamber',
+      city: 'Phnom Penh',
+      industry: 'Food & Beverage',
       companyId: company?.id,
     },
     {
       name: 'Manual Batch Import (MANUAL)',
       baseUrl: 'https://internal.jobtinder.local/manual',
       jobsUrl: 'https://internal.jobtinder.local/manual/jobs',
+      sourceType: 'THIRD_PARTY_JOB_BOARD',
       parserType: 'MANUAL',
       intervalMin: 1440,
+      discoveryMethod: 'manual_import',
+      city: 'Phnom Penh',
+      industry: 'Recruitment Services',
     },
   ];
 
@@ -253,14 +269,20 @@ async function main() {
         company_id: s.companyId,
         base_url: s.baseUrl,
         jobs_url: s.jobsUrl,
-        source_type: 'EXTERNAL',
+        source_type: s.sourceType,
         parser_type: s.parserType,
-        enabled: true,
+        enabled: false,
+        review_status: 'PENDING',
         crawl_interval_minutes: s.intervalMin,
         robots_status: 'UNCHECKED',
+        discovery_method: s.discoveryMethod,
+        city: s.city,
+        industry: s.industry,
       },
     });
-    console.log(`[seed] source "${s.name}" id=${String(created.id)} [${s.parserType}]`);
+    console.log(
+      `[seed] source "${s.name}" id=${String(created.id)} [${s.parserType}] review=PENDING enabled=false`,
+    );
   }
 
   console.log('');

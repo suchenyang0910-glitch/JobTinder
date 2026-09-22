@@ -136,6 +136,13 @@ enum SourceParserType {
   MANUAL
 }
 
+enum SourceReviewStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  SUSPENDED
+}
+
 enum CrawlQAStatus {
   NOT_RUN
   PASSED
@@ -188,6 +195,11 @@ enum AuditAction {
   CRAWL_REVIEW_REJECTED
   CRAWL_JOB_PUBLISHED
   CRAWL_JOB_MARKED_STALE
+  SOURCE_IMPORTED
+  SOURCE_VALIDATED
+  SOURCE_APPROVED
+  SOURCE_REJECTED
+  SOURCE_SUSPENDED
   TRUST_REPORT_SUBMITTED
   TRUST_BLOCK_EFFECTIVE
 }
@@ -470,28 +482,40 @@ model sessions {
 // ---------- Source Registry ----------
 
 model source_registry {
-  id                    BigInt           @id @default(autoincrement())
-  name                  String           @db.VarChar(256)
+  id                    BigInt             @id @default(autoincrement())
+  name                  String             @db.VarChar(256)
   company_id            BigInt?
-  base_url              String           @db.VarChar(2048)
-  jobs_url              String           @db.VarChar(2048)
-  source_type           String           @default("EXTERNAL") @db.VarChar(64)
-  parser_type           SourceParserType @default(STATIC_HTML)
-  enabled               Boolean          @default(true)
-  crawl_interval_minutes Int             @default(360)
+  base_url              String             @db.VarChar(2048)
+  jobs_url              String             @db.VarChar(2048)
+  // OFFICIAL_COMPANY_WEBSITE | GOVERNMENT_JOB_PORTAL | CHAMBER_DIRECTORY | THIRD_PARTY_JOB_BOARD | SOCIAL_PAGE
+  source_type           String             @default("OFFICIAL_COMPANY_WEBSITE") @db.VarChar(64)
+  parser_type           SourceParserType   @default(STATIC_HTML)
+  enabled               Boolean            @default(false)
+  crawl_interval_minutes Int               @default(360)
   last_crawled_at       DateTime?
   last_success_at       DateTime?
-  robots_status         String?          @db.VarChar(32) // ALLOWED / DISALLOWED / UNCHECKED
+  robots_status         String?            @db.VarChar(32) // ALLOWED / DISALLOWED / UNCHECKED
   terms_checked_at      DateTime?
-  created_at            DateTime         @default(now())
-  updated_at            DateTime         @updatedAt
+  review_status         SourceReviewStatus @default(PENDING)
+  discovery_method      String?            @db.VarChar(64)
+  city                  String?            @db.VarChar(64)
+  industry              String?            @db.VarChar(128)
+  verification_notes    String?            @db.VarChar(2000)
+  verified_at           DateTime?
+  verified_by           String?            @db.VarChar(128)
+  verification_score    Int?
+  last_validation_at    DateTime?
+  validation_error      String?            @db.VarChar(1024)
+  created_at            DateTime           @default(now())
+  updated_at            DateTime           @updatedAt
 
   crawl_runs            crawl_runs[]
   crawl_snapshots       crawl_snapshots[]
   crawl_jobs_staging    crawl_jobs_staging[]
-  company               companies?       @relation(fields: [company_id], references: [id], onDelete: SetNull)
+  company               companies?         @relation(fields: [company_id], references: [id], onDelete: SetNull)
 
-  @@index([enabled, last_crawled_at])
+  @@unique([base_url, jobs_url], name: "source_base_jobs_url_uq")
+  @@index([enabled, review_status, last_crawled_at])
 }
 
 // ---------- Crawl Snapshots (原始网页证据，仅存追溯用) ----------

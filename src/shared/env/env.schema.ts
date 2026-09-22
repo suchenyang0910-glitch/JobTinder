@@ -43,6 +43,7 @@ export const AppEnvSchema = z.object({
   CRAWLER_MAX_RETRIES: z.coerce.number().int().min(0).max(10).default(2),
   CRAWLER_MIN_INTERVAL_MS: z.coerce.number().int().min(0).max(3600000).default(2000),
   CRAWLER_MAX_INTERVAL_MS: z.coerce.number().int().min(0).max(3600000).default(5000),
+  ALLOW_NON_HTTPS_SOURCES: z.coerce.boolean().default(false),
 });
 
 export type AppEnv = z.infer<typeof AppEnvSchema>;

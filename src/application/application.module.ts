@@ -7,6 +7,11 @@ import { CrawlerQAService } from './crawler/crawler-qa.service';
 import { CrawlerOrchestrator } from './crawler/crawler-orchestrator.service';
 import { CrawlerReviewService } from './crawler/crawler-review.service';
 import { CrawlerSchedulerService } from './crawler/crawler-scheduler.service';
+import {
+  SourceImportService,
+  SourceReviewService as SourceRegistryReviewService,
+  SourceValidationService,
+} from './crawler/source-import.service';
 import { PrismaModule } from '@src/infrastructure/db/prisma/prisma.module';
 import { SharedModule } from '@src/shared/shared.module';
 
@@ -21,6 +26,9 @@ import { SharedModule } from '@src/shared/shared.module';
     CrawlerOrchestrator,
     CrawlerReviewService,
     CrawlerSchedulerService,
+    SourceImportService,
+    SourceRegistryReviewService,
+    SourceValidationService,
   ],
   exports: [
     UserIdentityService,
@@ -31,6 +39,9 @@ import { SharedModule } from '@src/shared/shared.module';
     CrawlerOrchestrator,
     CrawlerReviewService,
     CrawlerSchedulerService,
+    SourceImportService,
+    SourceRegistryReviewService,
+    SourceValidationService,
   ],
 })
 export class ApplicationModule {}

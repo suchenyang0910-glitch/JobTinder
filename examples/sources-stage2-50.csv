@@ -1,0 +1,50 @@
+name,base_url,jobs_url,source_type,parser_type,city,industry,discovery_method
+Smart Axiata,https://www.smart.com.kh,https://www.smart.com.kh/careers,OFFICIAL_COMPANY_WEBSITE,STATIC_HTML,Phnom Penh,Telecommunications,cambodia_chamber
+AMK Bank,https://www.amkcambodia.com,https://www.amkcambodia.com/careers,OFFICIAL_COMPANY_WEBSITE,STATIC_HTML,Phnom Penh,Banking,manual_research
+Ajinomoto Cambodia,https://ajinomoto.com.kh,https://ajinomoto.com.kh/career,OFFICIAL_COMPANY_WEBSITE,STATIC_HTML,Phnom Penh,Food Manufacturing,cancham
+BVM Petroleum,https://www.bvmpetroleum.com,https://www.bvmpetroleum.com/careers,OFFICIAL_COMPANY_WEBSITE,STATIC_HTML,Phnom Penh,Petroleum,manual_research
+NEA National Employment Agency,https://www.nea.gov.kh,https://www.nea.gov.kh/cpesEx/vacancy/index.do,GOVERNMENT_JOB_PORTAL,STATIC_HTML,Phnom Penh,Public Employment,nea_gov_primary
+Cambodia Chamber of Commerce Vacancy,https://www.cambodiacamber.org,https://www.cambodiacamber.org/jobs,CHAMBER_DIRECTORY,STATIC_HTML,Phnom Penh,Chamber Services,cambodia_chamber
+CanCham Cambodia Members,https://canchamcambodia.org,https://canchamcambodia.org/jobs,CHAMBER_DIRECTORY,STATIC_HTML,Phnom Penh,Business Association,cancham
+KhmerSME Directory,https://khmersme.gov.kh,https://khmersme.gov.kh/jobs,CHAMBER_DIRECTORY,STATIC_HTML,Phnom Penh,SME Services,khmer_sme_directory
+Acleda Bank,https://www.acledabank.com.kh,https://www.acledabank.com.kh/km/kh/careers,OFFICIAL_COMPANY_WEBSITE,STATIC_HTML,Phnom Penh,Banking,cambodia_moc_registered
+Canadia Bank,https://www.canadiabank.com.kh,https://www.canadiabank.com.kh/en/careers,OFFICIAL_COMPANY_WEBSITE,STATIC_HTML,Phnom Penh,Banking,cambodia_moc_registered
+Chip Mong Bank,https://www.chipmongbank.com,https://www.chipmongbank.com/en/careers,OFFICIAL_COMPANY_WEBSITE,STATIC_HTML,Phnom Penh,Banking,cambodia_moc_registered
+Prince Bank,https://www.princebank.com.kh,https://www.princebank.com.kh/careers,OFFICIAL_COMPANY_WEBSITE,STATIC_HTML,Phnom Penh,Banking,manual_research
+Sathapana Bank,https://www.sathapana.com.kh,https://www.sathapana.com.kh/careers,OFFICIAL_COMPANY_WEBSITE,STATIC_HTML,Phnom Penh,Microfinance,cambodia_moc_registered
+Hattha Bank,https://www.hatthabank.com,https://www.hatthabank.com/careers,OFFICIAL_COMPANY_WEBSITE,STATIC_HTML,Phnom Penh,Microfinance,cambodia_moc_registered
+Cellcard (Royal Group),https://www.cellcard.com.kh,https://www.cellcard.com.kh/careers,OFFICIAL_COMPANY_WEBSITE,STATIC_HTML,Phnom Penh,Telecommunications,cambodia_moc_registered
+Seametrey City,https://www.seametreycity.com,https://www.seametreycity.com/careers,OFFICIAL_COMPANY_WEBSITE,STATIC_HTML,Phnom Penh,Education,manual_research
+Paragon International University,https://paragoniu.edu.kh,https://paragoniu.edu.kh/vacancies,OFFICIAL_COMPANY_WEBSITE,STATIC_HTML,Phnom Penh,Higher Education,manual_research
+Cafe Amazon Cambodia,https://www.cafe-amazon.com.kh,https://www.cafe-amazon.com.kh/careers,OFFICIAL_COMPANY_WEBSITE,STATIC_HTML,Phnom Penh,Retail F&B,cambodia_moc_registered
+Brown Coffee,https://brown.com.kh,https://brown.com.kh/pages/careers,OFFICIAL_COMPANY_WEBSITE,STATIC_HTML,Phnom Penh,Retail F&B,manual_research
+The Pizza Company Cambodia,https://www.thepizzacompany.com.kh,https://www.thepizzacompany.com.kh/careers,OFFICIAL_COMPANY_WEBSITE,STATIC_HTML,Phnom Penh,Food & Beverage,manual_research
+Koh Ker Brewery,https://kohkerbrewery.com,https://kohkerbrewery.com/jobs,OFFICIAL_COMPANY_WEBSITE,STATIC_HTML,Phnom Penh,Beverages,manual_research
+Prince Retail Group,https://www.princeretail.com.kh,https://www.princeretail.com.kh/careers,OFFICIAL_COMPANY_WEBSITE,STATIC_HTML,Phnom Penh,Retail,cambodia_moc_registered
+Lucky Supermarket,https://www.lucky.com.kh,https://www.lucky.com.kh/careers,OFFICIAL_COMPANY_WEBSITE,STATIC_HTML,Phnom Penh,Retail,cambodia_moc_registered
+Makro Cambodia,https://www.makro-cambodia.com,https://www.makro-cambodia.com/careers,OFFICIAL_COMPANY_WEBSITE,STATIC_HTML,Phnom Penh,Retail Wholesale,cambodia_moc_registered
+DHL Cambodia,https://www.dhl.com/kh-en/home,https://www.dhl.com/kh-en/home/careers,OFFICIAL_COMPANY_WEBSITE,STATIC_HTML,Phnom Penh,Logistics,cambodia_moc_registered
+Kintetsu Express Cambodia,https://www.kintetsu-express.com.kh,https://www.kintetsu-express.com.kh/careers,OFFICIAL_COMPANY_WEBSITE,STATIC_HTML,Phnom Penh,Logistics,cambodia_moc_registered
+CMA CGM Cambodia,https://www.cma-cgm.com,https://www.cma-cgm.com/careers/country/cambodia,OFFICIAL_COMPANY_WEBSITE,STATIC_HTML,Phnom Penh,Logistics,cancham
+PPAPS Phnom Penh Autonomous Port,https://www.ppap.gov.kh,https://www.ppap.gov.kh/vacancies,GOVERNMENT_JOB_PORTAL,STATIC_HTML,Phnom Penh,Public Logistics,nea_gov_primary
+Sihanoukville Autonomous Port,https://www.sihanoukvilleport.gov.kh,https://www.sihanoukvilleport.gov.kh/jobs,GOVERNMENT_JOB_PORTAL,STATIC_HTML,Sihanoukville,Public Logistics,nea_gov_primary
+Wynn Palace Cambodia,https://www.wynnpalacecambodia.com,https://www.wynnpalacecambodia.com/careers,OFFICIAL_COMPANY_WEBSITE,STATIC_HTML,Sihanoukville,Hospitality & Gaming,manual_research
+NagaWorld Sihanoukville,https://nagacorp.com,https://nagacorp.com/careers,OFFICIAL_COMPANY_WEBSITE,STATIC_HTML,Sihanoukville,Hospitality & Gaming,cambodia_moc_registered
+Holiday Inn Sihanoukville,https://www.ihg.com/sihanoukville,https://www.ihg.com/careers,OFFICIAL_COMPANY_WEBSITE,STATIC_HTML,Sihanoukville,Hospitality,manual_research
+Blue Bay Resort Sihanoukville,https://www.bluebayresort.com.kh,https://www.bluebayresort.com.kh/vacancies,OFFICIAL_COMPANY_WEBSITE,STATIC_HTML,Sihanoukville,Hospitality,manual_research
+Oknha Ty Manufacturing,https://www.oknhaty.com.kh,https://www.oknhaty.com.kh/jobs,OFFICIAL_COMPANY_WEBSITE,STATIC_HTML,Sihanoukville,Garment Manufacturing,cambodia_moc_registered
+Kampuchea Tela Industry,https://www.tela-cambodia.com,https://www.tela-cambodia.com/careers,OFFICIAL_COMPANY_WEBSITE,STATIC_HTML,Sihanoukville,Petrochemical,cambodia_moc_registered
+Sihanoukville Special Economic Zone,https://www.ssez.com,https://www.ssez.com/jobs,THIRD_PARTY_JOB_BOARD,STATIC_HTML,Sihanoukville,SEZ Services,manual_research
+Angkor Beer Brewery,https://www.angkorbeer.com.kh,https://www.angkorbeer.com.kh/careers,OFFICIAL_COMPANY_WEBSITE,STATIC_HTML,Siem Reap,Beverages,cambodia_moc_registered
+Park Hyatt Siem Reap,https://www.hyatt.com/en-US/hotel/cambodia/park-hyatt-siem-reap/rephr,https://www.hyatt.com/careers,OFFICIAL_COMPANY_WEBSITE,STATIC_HTML,Siem Reap,Hospitality,cambodia_moc_registered
+Sofitel Angkor Resort,https://www.sofitel-angkor.com,https://www.sofitel-angkor.com/careers,OFFICIAL_COMPANY_WEBSITE,STATIC_HTML,Siem Reap,Hospitality,manual_research
+Shinta Mani Angkor,https://www.shintamani.com,https://www.shintamani.com/jobs,OFFICIAL_COMPANY_WEBSITE,STATIC_HTML,Siem Reap,Hospitality,manual_research
+Templation Angkor,https://templationangkor.com,https://templationangkor.com/vacancies,OFFICIAL_COMPANY_WEBSITE,STATIC_HTML,Siem Reap,Hospitality,manual_research
+Amansara Resort,https://www.aman.com/resorts/amansara,https://www.aman.com/careers,OFFICIAL_COMPANY_WEBSITE,STATIC_HTML,Siem Reap,Hospitality,cancham
+Angkor Village Hotel,https://www.angkorvillage.com,https://www.angkorvillage.com/careers,OFFICIAL_COMPANY_WEBSITE,STATIC_HTML,Siem Reap,Hospitality,manual_research
+Royal Angkor Resort & Spa,https://www.royalangkorresort.com,https://www.royalangkorresort.com/careers,OFFICIAL_COMPANY_WEBSITE,STATIC_HTML,Siem Reap,Hospitality,manual_research
+Heritage Suites Hotel,https://www.heritagesuiteshotel.com,https://www.heritagesuiteshotel.com/jobs,OFFICIAL_COMPANY_WEBSITE,STATIC_HTML,Siem Reap,Hospitality,manual_research
+Sabay Digital,https://sabay.com,https://sabay.com/careers,OFFICIAL_COMPANY_WEBSITE,STATIC_HTML,Phnom Penh,Digital Media,cambodia_moc_registered
+Opensource Cambodia,https://opensource-cambodia.com,https://opensource-cambodia.com/jobs,OFFICIAL_COMPANY_WEBSITE,STATIC_HTML,Phnom Penh,IT Services,manual_research
+Ezecom,https://www.ezecom.com.kh,https://www.ezecom.com.kh/careers,OFFICIAL_COMPANY_WEBSITE,STATIC_HTML,Phnom Penh,Telecom ISP,cambodia_moc_registered
+Singtel Cambodia,https://www.singtel.com.kh,https://www.singtel.com.kh/careers,OFFICIAL_COMPANY_WEBSITE,STATIC_HTML,Phnom Penh,Telecom,cambodia_moc_registered

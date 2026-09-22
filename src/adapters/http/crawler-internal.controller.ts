@@ -1,9 +1,11 @@
 import {
+  Body,
   Controller,
   Get,
   Headers,
   Param,
   ParseIntPipe,
+  Post,
   Query,
   UnauthorizedException,
 } from '@nestjs/common';
@@ -11,6 +13,13 @@ import { PrismaService } from '@src/infrastructure/db/prisma/prisma.service';
 import { APP_ENV } from '@src/shared/env/app-env';
 import { AppError } from '@src/shared/errors/app-error';
 import { AppErrorCode } from '@src/shared/errors/app-error-code';
+import {
+  SourceImportService,
+  SourceReviewService as SourceRegistryReviewService,
+  SourceValidationService,
+} from '@src/application/crawler/source-import.service';
+import { AppErrorCode as _AppEC_resolve_unused } from '@src/shared/errors/app-error-code';
+void _AppEC_resolve_unused;
 
 function checkInternalToken(headerVal: string | undefined): void {
   const expected = APP_ENV.CRAWLER_INTERNAL_TOKEN;
@@ -29,7 +38,117 @@ function checkInternalToken(headerVal: string | undefined): void {
 
 @Controller('/internal/crawler')
 export class CrawlerInternalController {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly sourceImporter: SourceImportService,
+    private readonly sourceReview: SourceRegistryReviewService,
+    private readonly sourceValidator: SourceValidationService,
+  ) {}
+
+  @Post('/sources/import')
+  async importSources(
+    @Headers('x-jobtinder-internal-token') token?: string,
+    @Body() body?: { csv?: string; dryRun?: boolean; allowNonHttps?: boolean },
+  ) {
+    checkInternalToken(token);
+    if (!body?.csv || typeof body.csv !== 'string') {
+      throw new AppError({
+        code: AppErrorCode.CRAWL_SOURCE_IMPORT_INVALID_CSV,
+        message: `Request body.csv is required (string).`,
+      });
+    }
+    return this.sourceImporter.importFromCsvText(body.csv, {
+      dryRun: Boolean(body.dryRun),
+      allowNonHttps: Boolean(body.allowNonHttps),
+    });
+  }
+
+  @Get('/sources/:id')
+  async getSource(
+    @Headers('x-jobtinder-internal-token') token?: string,
+    @Param('id') idRaw?: string,
+  ) {
+    checkInternalToken(token);
+    if (!idRaw || !/^\d+$/.test(idRaw)) {
+      throw new AppError({
+        code: AppErrorCode.CRAWL_SOURCE_NOT_FOUND,
+        message: `Invalid source id ${String(idRaw)}`,
+      });
+    }
+    const id = BigInt(idRaw);
+    const row = await this.prisma.source_registry.findUnique({ where: { id } });
+    if (!row) throw new AppError({ code: AppErrorCode.CRAWL_SOURCE_NOT_FOUND });
+    return row;
+  }
+
+  @Post('/sources/:id/validate')
+  async validateSource(
+    @Headers('x-jobtinder-internal-token') token?: string,
+    @Param('id') idRaw?: string,
+  ) {
+    checkInternalToken(token);
+    if (!idRaw || !/^\d+$/.test(idRaw)) {
+      throw new AppError({
+        code: AppErrorCode.CRAWL_SOURCE_NOT_FOUND,
+        message: `Invalid source id ${String(idRaw)}`,
+      });
+    }
+    return this.sourceValidator.validate(BigInt(idRaw), null);
+  }
+
+  @Post('/sources/:id/approve')
+  async approveSource(
+    @Headers('x-jobtinder-internal-token') token?: string,
+    @Param('id') idRaw?: string,
+    @Body() body?: { reason?: string },
+  ) {
+    checkInternalToken(token);
+    if (!idRaw || !/^\d+$/.test(idRaw)) {
+      throw new AppError({
+        code: AppErrorCode.CRAWL_SOURCE_NOT_FOUND,
+        message: `Invalid source id ${String(idRaw)}`,
+      });
+    }
+    return this.sourceReview.approve(BigInt(idRaw), null, body?.reason ?? null);
+  }
+
+  @Post('/sources/:id/reject')
+  async rejectSource(
+    @Headers('x-jobtinder-internal-token') token?: string,
+    @Param('id') idRaw?: string,
+    @Body() body?: { reason: string },
+  ) {
+    checkInternalToken(token);
+    if (!idRaw || !/^\d+$/.test(idRaw)) {
+      throw new AppError({
+        code: AppErrorCode.CRAWL_SOURCE_NOT_FOUND,
+        message: `Invalid source id ${String(idRaw)}`,
+      });
+    }
+    if (!body?.reason || String(body.reason).trim().length < 2) {
+      throw new AppError({
+        code: AppErrorCode.CRAWL_SOURCE_VALIDATION_FAILED,
+        message: `reject reason is required (>=2 chars)`,
+      });
+    }
+    return this.sourceReview.reject(BigInt(idRaw), null, body.reason);
+  }
+
+  @Post('/sources/:id/suspend')
+  async suspendSource(
+    @Headers('x-jobtinder-internal-token') token?: string,
+    @Param('id') idRaw?: string,
+    @Body() body?: { reason?: string },
+  ) {
+    checkInternalToken(token);
+    if (!idRaw || !/^\d+$/.test(idRaw)) {
+      throw new AppError({
+        code: AppErrorCode.CRAWL_SOURCE_NOT_FOUND,
+        message: `Invalid source id ${String(idRaw)}`,
+      });
+    }
+    return this.sourceReview.suspend(BigInt(idRaw), null, body?.reason ?? null);
+  }
 
   @Get('/sources')
   async listSources(

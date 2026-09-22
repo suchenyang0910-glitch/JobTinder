@@ -47,6 +47,7 @@ export class CrawlerSchedulerService {
     const sources = await this.prisma.source_registry.findMany({
       where: {
         enabled: true,
+        review_status: 'APPROVED',
       },
     });
 
@@ -62,7 +63,9 @@ export class CrawlerSchedulerService {
   }
 
   async runAllSources(): Promise<void> {
-    const sources = await this.prisma.source_registry.findMany({ where: { enabled: true } });
+    const sources = await this.prisma.source_registry.findMany({
+      where: { enabled: true, review_status: 'APPROVED' },
+    });
     for (const s of sources) {
       await this.runSourceWithRunRecord(s.id);
     }

@@ -69,7 +69,18 @@ export class CrawlerOrchestrator {
         code: AppErrorCode.CRAWL_SOURCE_NOT_FOUND,
         message: `source ${String(sourceId)} not found`,
       });
+    if (source.review_status !== 'APPROVED') {
+      stats.lastError = `source review_status=${source.review_status}, must be APPROVED to run`;
+      stats.errorCount = 1;
+      return stats;
+    }
     if (!source.enabled) return stats;
+    if (source.parser_type !== 'STATIC_HTML') {
+      throw new AppError({
+        code: AppErrorCode.CRAWL_SOURCE_PARSER_NOT_IMPLEMENTED,
+        message: `parser_type ${source.parser_type} is not implemented in stage-1`,
+      });
+    }
 
     const robots = await this.crawler.checkRobots(source.base_url);
     if (!robots.allowed) {
@@ -141,9 +152,7 @@ export class CrawlerOrchestrator {
             },
           })) || !existingSourceJobIds.has(sourceJobId);
         const parsed = await this.parseTextToStagingFields(
-          source.parser_type === 'MANUAL'
-            ? result.body
-            : this.crawler.extractTextFromHtml(result.body),
+          this.crawler.extractTextFromHtml(result.body),
           result.url,
         );
         let staging = await this.upsertStagingRow({

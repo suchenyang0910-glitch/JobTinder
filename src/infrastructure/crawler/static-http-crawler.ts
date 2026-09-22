@@ -14,6 +14,7 @@ export interface FetchResult {
   errorCode: string | null;
   errorMessage: string | null;
   isDuplicate: boolean;
+  headers: Map<string, string> | null;
 }
 
 export interface RobotsStatus {
@@ -140,6 +141,7 @@ export class StaticHttpCrawler {
     url: string;
     knownHashes?: Set<string>;
     crawlDelayMs?: number;
+    skipSnapshot?: boolean;
   }): Promise<FetchResult> {
     const { sourceId, url, knownHashes, crawlDelayMs } = params;
     let lastErr: unknown;
@@ -198,6 +200,14 @@ export class StaticHttpCrawler {
         const body = await resp.text();
         const hash = StaticHttpCrawler.sha256Hex(body);
         const isDuplicate = !!knownHashes?.has(hash);
+        const headersMap = new Map<string, string>();
+        try {
+          if (resp.headers && typeof resp.headers.forEach === 'function') {
+            resp.headers.forEach((v, k) => headersMap.set(k.toLowerCase(), v));
+          }
+        } catch {
+          /* ignore header collection errors */
+        }
         return {
           url,
           httpStatus: status,
@@ -208,6 +218,7 @@ export class StaticHttpCrawler {
           errorCode: null,
           errorMessage: null,
           isDuplicate,
+          headers: headersMap,
         };
       } catch (e) {
         clearTimeout(t);
@@ -231,6 +242,7 @@ export class StaticHttpCrawler {
     contentType: string | null,
     errorCode: string,
     errorMessage: string,
+    headers: Map<string, string> | null = null,
   ): FetchResult {
     return {
       url,
@@ -242,6 +254,7 @@ export class StaticHttpCrawler {
       errorCode,
       errorMessage,
       isDuplicate: false,
+      headers,
     };
   }
 
