@@ -70,4 +70,22 @@ export class OllamaAIProvider extends AIExtractProvider {
       degraded: true,
     });
   }
+
+  getModelLabel(): string | null {
+    return this.getModel();
+  }
+
+  async callRawPrompt(
+    userMessage: string,
+    opts?: {
+      temperature?: number;
+      responseFormat?: 'json_object' | 'text';
+      timeoutMs?: number;
+      system?: string;
+    },
+  ): Promise<string> {
+    void opts;
+    void userMessage;
+    throw new Error('Ollama callRawPrompt not implemented in stage-1');
+  }
 }

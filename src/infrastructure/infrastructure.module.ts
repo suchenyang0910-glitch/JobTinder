@@ -11,6 +11,8 @@ import { OutboxRepository } from './queue/outbox.repository';
 import { NOTIFY_HANDLER_TOKEN } from './queue/outbox-notification-handler';
 import { MockOutboxNotificationHandler } from './queue/mock-outbox-notification-handler';
 import { PostgresSessionStorage } from './telegram/postgres-session-storage';
+import { StaticHttpCrawler } from './crawler/static-http-crawler';
+import { CrawlerTranslationService } from './ai/crawler-translation.service';
 
 function resolveAIProviderClass(): Type<AIExtractProvider> {
   switch (APP_ENV.AI_DEFAULT_PROVIDER) {
@@ -41,6 +43,8 @@ function resolveAIProviderClass(): Type<AIExtractProvider> {
     AuditRepository,
     OutboxRepository,
     PostgresSessionStorage,
+    StaticHttpCrawler,
+    CrawlerTranslationService,
   ],
   exports: [
     PrismaModule,
@@ -49,6 +53,8 @@ function resolveAIProviderClass(): Type<AIExtractProvider> {
     AuditRepository,
     OutboxRepository,
     PostgresSessionStorage,
+    StaticHttpCrawler,
+    CrawlerTranslationService,
   ],
 })
 export class InfrastructureModule {

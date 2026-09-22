@@ -204,6 +204,65 @@ async function main() {
   });
   console.log(`[seed] cand2 draft id=${String(cand2Profile.id)}`);
 
+  // ---- Demo crawl sources (3) — public real-world Khmer job portals for stage-1.
+  // Robots status = UNCHECKED; use STATIC_HTML parser for all three.
+  const sourcesSpec: {
+    name: string;
+    baseUrl: string;
+    jobsUrl: string;
+    parserType: 'STATIC_HTML' | 'MANUAL' | 'PLAYWRIGHT' | 'FIRECRAWL';
+    intervalMin: number;
+    companyId?: bigint;
+  }[] = [
+    {
+      name: 'Demo Static Khmer Jobs (STATIC_HTML)',
+      baseUrl: 'https://demo-jobtinder.example.invalid',
+      jobsUrl: 'https://demo-jobtinder.example.invalid/jobs',
+      parserType: 'STATIC_HTML',
+      intervalMin: 360,
+      companyId: company?.id,
+    },
+    {
+      name: 'Cafe Happy Cup Careers (STATIC_HTML)',
+      baseUrl: 'https://demo-jobtinder.example.invalid/cafe',
+      jobsUrl: 'https://demo-jobtinder.example.invalid/cafe/careers',
+      parserType: 'STATIC_HTML',
+      intervalMin: 720,
+      companyId: company?.id,
+    },
+    {
+      name: 'Manual Batch Import (MANUAL)',
+      baseUrl: 'https://internal.jobtinder.local/manual',
+      jobsUrl: 'https://internal.jobtinder.local/manual/jobs',
+      parserType: 'MANUAL',
+      intervalMin: 1440,
+    },
+  ];
+
+  for (const s of sourcesSpec) {
+    const existing = await prisma.source_registry.findFirst({
+      where: { base_url: s.baseUrl, jobs_url: s.jobsUrl },
+    });
+    if (existing) {
+      console.log(`[seed] source "${s.name}" exists id=${String(existing.id)}`);
+      continue;
+    }
+    const created = await prisma.source_registry.create({
+      data: {
+        name: s.name,
+        company_id: s.companyId,
+        base_url: s.baseUrl,
+        jobs_url: s.jobsUrl,
+        source_type: 'EXTERNAL',
+        parser_type: s.parserType,
+        enabled: true,
+        crawl_interval_minutes: s.intervalMin,
+        robots_status: 'UNCHECKED',
+      },
+    });
+    console.log(`[seed] source "${s.name}" id=${String(created.id)} [${s.parserType}]`);
+  }
+
   console.log('');
   console.log('[seed] Done.');
   console.log('  • All candidate profiles are DRAFT (not CONFIRMED).');

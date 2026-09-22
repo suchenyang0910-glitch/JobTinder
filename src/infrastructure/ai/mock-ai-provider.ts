@@ -52,4 +52,35 @@ export class MockAIProvider extends AIExtractProvider {
       degraded: true,
     });
   }
+
+  getModelLabel(): string | null {
+    return 'mock';
+  }
+
+  async callRawPrompt(
+    userMessage: string,
+    opts?: {
+      temperature?: number;
+      responseFormat?: 'json_object' | 'text';
+      timeoutMs?: number;
+      system?: string;
+    },
+  ): Promise<string> {
+    void opts;
+    const t = userMessage.trim();
+    if (t.toLowerCase().includes('language') || t.includes('detect')) {
+      return JSON.stringify({ language: 'en' });
+    }
+    return JSON.stringify({
+      title: 'Mock translated title',
+      tasks: [],
+      skills: [],
+      industry: null,
+      locations: [],
+      salaryText: null,
+      shifts: [],
+      benefits: [],
+      warnings: ['MOCK_TRANSLATION'],
+    });
+  }
 }

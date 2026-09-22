@@ -19,21 +19,65 @@ class FakeProvider extends AIExtractProvider {
   readonly providerId: AIProviderId;
   private nextCandidate: (raw: string, l: AILanguage) => AIExtractedCandidateDraft;
   private nextJob: (raw: string, l: AILanguage) => AIExtractedJobDraft;
+  private rawFn?: (
+    msg: string,
+    opts?: {
+      system?: string;
+      temperature?: number;
+      responseFormat?: 'json_object' | 'text';
+      timeoutMs?: number;
+    },
+  ) => string;
   constructor(
     id: AIProviderId,
     cand: (raw: string, l: AILanguage) => AIExtractedCandidateDraft,
     job: (raw: string, l: AILanguage) => AIExtractedJobDraft,
+    raw?: (
+      msg: string,
+      opts?: {
+        system?: string;
+        temperature?: number;
+        responseFormat?: 'json_object' | 'text';
+        timeoutMs?: number;
+      },
+    ) => string,
   ) {
     super();
     this.providerId = id;
     this.nextCandidate = cand;
     this.nextJob = job;
+    this.rawFn = raw;
   }
   extractCandidateDraft(raw: string, language: AILanguage): Promise<AIExtractedCandidateDraft> {
     return Promise.resolve(this.nextCandidate(raw, language));
   }
   extractJobDraft(raw: string, language: AILanguage): Promise<AIExtractedJobDraft> {
     return Promise.resolve(this.nextJob(raw, language));
+  }
+  getModelLabel(): string | null {
+    return `fake:${this.providerId}`;
+  }
+  async callRawPrompt(
+    userMessage: string,
+    opts?: {
+      system?: string;
+      temperature?: number;
+      responseFormat?: 'json_object' | 'text';
+      timeoutMs?: number;
+    },
+  ): Promise<string> {
+    if (this.rawFn) return this.rawFn(userMessage, opts);
+    return JSON.stringify({
+      title: 'Fake translated',
+      tasks: [],
+      skills: [],
+      industry: null,
+      locations: [],
+      salaryText: null,
+      shifts: [],
+      benefits: [],
+      warnings: [],
+    });
   }
 }
 

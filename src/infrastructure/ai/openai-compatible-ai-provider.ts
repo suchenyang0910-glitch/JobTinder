@@ -61,4 +61,22 @@ export class OpenAICompatibleAIProvider extends AIExtractProvider {
       degraded: true,
     });
   }
+
+  getModelLabel(): string | null {
+    return APP_ENV.AI_OPENAI_COMPATIBLE_MODEL || null;
+  }
+
+  async callRawPrompt(
+    userMessage: string,
+    opts?: {
+      temperature?: number;
+      responseFormat?: 'json_object' | 'text';
+      timeoutMs?: number;
+      system?: string;
+    },
+  ): Promise<string> {
+    void opts;
+    void userMessage;
+    throw new Error('OpenAI-compatible callRawPrompt not implemented in stage-1');
+  }
 }

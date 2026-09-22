@@ -71,6 +71,11 @@ export default [
       '@typescript-eslint/no-unsafe-return': 'off',
       '@typescript-eslint/no-unsafe-argument': 'off',
       '@typescript-eslint/no-floating-promises': 'off',
+      // Promise-returning test doubles and provider adapters intentionally
+      // use async interface-compatible methods without awaiting locally.
+      '@typescript-eslint/require-await': 'off',
+      // Prisma's GetPayload uses `{}` as its default argument by design.
+      '@typescript-eslint/no-empty-object-type': 'off',
       '@typescript-eslint/no-unnecessary-type-assertion': 'warn',
       '@typescript-eslint/restrict-template-expressions': 'off',
       '@typescript-eslint/no-base-to-string': 'off',

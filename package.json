@@ -32,7 +32,12 @@
     "prisma:studio": "node scripts/with-dotenv-override.cjs prisma studio",
     "env:validate": "ts-node -r tsconfig-paths/register src/shared/env/validate-env.ts",
     "env:validate:strict": "ts-node -r tsconfig-paths/register src/shared/env/validate-env.ts --strict",
-    "worker:outbox": "ts-node -r tsconfig-paths/register src/infrastructure/queue/outbox-worker-entry.ts"
+    "worker:outbox": "ts-node -r tsconfig-paths/register src/infrastructure/queue/outbox-worker-entry.ts",
+    "crawler:sources": "node scripts/with-dotenv-override.cjs ts-node -r tsconfig-paths/register scripts/crawler-cli.ts sources",
+    "crawler:run": "node scripts/with-dotenv-override.cjs ts-node -r tsconfig-paths/register scripts/crawler-cli.ts run",
+    "crawler:run-all": "node scripts/with-dotenv-override.cjs ts-node -r tsconfig-paths/register scripts/crawler-cli.ts run-all",
+    "crawler:review": "node scripts/with-dotenv-override.cjs ts-node -r tsconfig-paths/register scripts/crawler-cli.ts review",
+    "crawler:retry-translation": "node scripts/with-dotenv-override.cjs ts-node -r tsconfig-paths/register scripts/crawler-cli.ts retry-translation"
   },
   "dependencies": {
     "@nestjs/common": "^11.0.0",

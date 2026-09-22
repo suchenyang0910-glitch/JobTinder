@@ -141,13 +141,29 @@ JSON Schema (Job):
    * Throws (not degrades) on 4xx and unexpected transport errors — callers
    * catch this and convert to degraded result + user-facing retry prompt.
    */
-  private async callOnce(system: string, user: string, attempt: number): Promise<string> {
+  private async callOnce(params: {
+    system: string;
+    user: string;
+    attempt: number;
+    temperature?: number;
+    responseFormat?: 'json_object' | 'text';
+    timeoutMs?: number;
+  }): Promise<string> {
+    const {
+      system,
+      user,
+      attempt,
+      temperature = 0.1,
+      responseFormat = 'json_object',
+      timeoutMs = TIMEOUT_MS,
+    } = params;
     const key = this.apiKey;
     if (!key) throw new Error('DEEPSEEK_API_KEY_NOT_CONFIGURED');
+    const responseFormatType: 'json_object' | 'text' = responseFormat;
     const payload = {
       model: this.model,
-      temperature: 0.1,
-      response_format: { type: 'json_object' as const },
+      temperature,
+      response_format: { type: responseFormatType },
       messages: [
         { role: 'system' as const, content: system },
         { role: 'user' as const, content: user },
@@ -155,7 +171,7 @@ JSON Schema (Job):
     };
 
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), TIMEOUT_MS);
+    const timeout = setTimeout(() => controller.abort(), timeoutMs);
     try {
       const res = await fetch(ENDPOINT, {
         method: 'POST',
@@ -185,27 +201,68 @@ JSON Schema (Job):
     }
   }
 
+  getModelLabel(): string | null {
+    return this.model;
+  }
+
+  async callRawPrompt(
+    userMessage: string,
+    opts?: {
+      temperature?: number;
+      responseFormat?: 'json_object' | 'text';
+      timeoutMs?: number;
+      system?: string;
+    },
+  ): Promise<string> {
+    const system = opts?.system ?? 'You are a helpful assistant. Reply concisely.';
+    const MAX_USER = 16000;
+    const safeUser = userMessage.slice(0, MAX_USER);
+    this.logger.debug(
+      `DeepSeek callRawPrompt: user_chars=${safeUser.length} model=${this.model} responseFormat=${opts?.responseFormat ?? 'json_object'}`,
+    );
+    let lastErr: Error | null = null;
+    const maxAttempts = 2;
+    for (let attempt = 0; attempt < maxAttempts; attempt++) {
+      try {
+        return await this.callOnce({
+          system,
+          user: safeUser,
+          attempt,
+          temperature: opts?.temperature ?? 0.1,
+          responseFormat: opts?.responseFormat ?? 'json_object',
+          timeoutMs: opts?.timeoutMs ?? TIMEOUT_MS,
+        });
+      } catch (e) {
+        lastErr = e instanceof Error ? e : new Error(String(e));
+        const msg = lastErr.message;
+        if (msg.startsWith('HTTP 4xx') || msg.includes('API_KEY_NOT_CONFIGURED')) break;
+        if (attempt === 0) {
+          this.logger.warn(
+            `DeepSeek callRawPrompt attempt 0 failed, retry once: ${msg.slice(0, 160)}`,
+          );
+        }
+      }
+    }
+    throw new Error(`DeepSeek callRawPrompt failed: ${lastErr?.message ?? 'unknown'}`);
+  }
+
   private async extractJSON(systemPrompt: string, raw: string): Promise<string | null> {
     if (raw.trim().length < 6) return null;
     const MAX_PROMPT_CHARS = 6000;
     const safeUser = raw.slice(0, MAX_PROMPT_CHARS);
-    // Only log truncated byte length and attempt counters; never PII or keys.
     this.logger.debug(`DeepSeek request: user_chars=${safeUser.length} model=${this.model}`);
     let lastErr: Error | null = null;
     for (let attempt = 0; attempt < 2; attempt++) {
       try {
-        return await this.callOnce(systemPrompt, safeUser, attempt);
+        return await this.callOnce({ system: systemPrompt, user: safeUser, attempt });
       } catch (e) {
         lastErr = e instanceof Error ? e : new Error(String(e));
-        // 4xx / invalid key / malformed input: NEVER retry
         const msg = lastErr.message;
         if (msg.startsWith('HTTP 4xx') || msg.includes('API_KEY_NOT_CONFIGURED')) break;
-        // 5xx / timeout / network: retry once only
         if (attempt === 0)
           this.logger.warn(`DeepSeek attempt 0 failed, retry once: ${msg.slice(0, 160)}`);
       }
     }
-    // Last-resort transport failure — log truncated error, never user text or key.
     this.logger.error(
       `DeepSeek failed permanently: ${lastErr?.message?.slice(0, 240) ?? 'unknown'}`,
     );

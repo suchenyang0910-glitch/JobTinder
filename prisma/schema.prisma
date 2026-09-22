@@ -116,6 +116,40 @@ enum NotificationType {
   GENERAL
 }
 
+enum CrawlJobStatus {
+  DISCOVERED
+  FETCHED
+  PARSED
+  TRANSLATED
+  QA_PENDING
+  REVIEW_REQUIRED
+  APPROVED
+  REJECTED
+  PUBLISHED
+  STALE
+}
+
+enum SourceParserType {
+  STATIC_HTML
+  PLAYWRIGHT
+  FIRECRAWL
+  MANUAL
+}
+
+enum CrawlQAStatus {
+  NOT_RUN
+  PASSED
+  FAILED
+  REVIEW_REQUIRED
+}
+
+enum CrawlTranslationStatus {
+  NOT_STARTED
+  IN_PROGRESS
+  DONE
+  FAILED
+}
+
 enum AuditAction {
   USER_CREATED
   USER_LANGUAGE_CHANGED
@@ -130,6 +164,7 @@ enum AuditAction {
   JOB_CONFIRMED
   JOB_CLAIMED
   JOB_CLOSED
+  JOB_PUBLISHED_FROM_CRAWL
   INTEREST_RECORDED
   INTEREST_ACCEPTED
   INTEREST_DECLINED
@@ -144,6 +179,15 @@ enum AuditAction {
   NOTIFY_FAILED_DEAD
   CRAWL_RUN_STARTED
   CRAWL_RUN_FINISHED
+  CRAWL_SOURCE_REGISTERED
+  CRAWL_JOB_DISCOVERED
+  CRAWL_JOB_PARSED
+  CRAWL_TRANSLATION_DONE
+  CRAWL_QA_FLAGGED
+  CRAWL_REVIEW_APPROVED
+  CRAWL_REVIEW_REJECTED
+  CRAWL_JOB_PUBLISHED
+  CRAWL_JOB_MARKED_STALE
   TRUST_REPORT_SUBMITTED
   TRUST_BLOCK_EFFECTIVE
 }
@@ -222,6 +266,7 @@ model companies {
 
   members             companies_members[]
   jobs                jobs[]
+  crawl_sources       source_registry[]
 }
 
 model companies_members {
@@ -274,6 +319,7 @@ model jobs {
   company           companies?   @relation(fields: [company_id], references: [id])
   interests         interests[]  @relation("job_interests")
   matches           matches[]    @relation("job_matches")
+  published_from_crawl crawl_jobs_staging?
 
   @@unique([source_job_id, source_type], name: "job_source_uq")
   @@index([status])
@@ -421,19 +467,141 @@ model sessions {
   @@index([expires_at])
 }
 
-// ---------- Crawl Runs (stub for stage-2) ----------
+// ---------- Source Registry ----------
+
+model source_registry {
+  id                    BigInt           @id @default(autoincrement())
+  name                  String           @db.VarChar(256)
+  company_id            BigInt?
+  base_url              String           @db.VarChar(2048)
+  jobs_url              String           @db.VarChar(2048)
+  source_type           String           @default("EXTERNAL") @db.VarChar(64)
+  parser_type           SourceParserType @default(STATIC_HTML)
+  enabled               Boolean          @default(true)
+  crawl_interval_minutes Int             @default(360)
+  last_crawled_at       DateTime?
+  last_success_at       DateTime?
+  robots_status         String?          @db.VarChar(32) // ALLOWED / DISALLOWED / UNCHECKED
+  terms_checked_at      DateTime?
+  created_at            DateTime         @default(now())
+  updated_at            DateTime         @updatedAt
+
+  crawl_runs            crawl_runs[]
+  crawl_snapshots       crawl_snapshots[]
+  crawl_jobs_staging    crawl_jobs_staging[]
+  company               companies?       @relation(fields: [company_id], references: [id], onDelete: SetNull)
+
+  @@index([enabled, last_crawled_at])
+}
+
+// ---------- Crawl Snapshots (原始网页证据，仅存追溯用) ----------
+
+model crawl_snapshots {
+  id              BigInt   @id @default(autoincrement())
+  source_id       BigInt
+  url             String   @db.VarChar(2048)
+  http_status     Int?
+  content_hash    String   @db.VarChar(128) // sha256 hex
+  raw_content     Bytes?   // 仅审核追溯用，不对外暴露
+  content_type    String?  @db.VarChar(128)
+  fetched_at      DateTime @default(now())
+  parser_version  String   @db.VarChar(64) @default("1.0")
+  error_code      String?  @db.VarChar(64) // HTTP_403 / HTTP_429 / TIMEOUT / PARSE_ERROR
+  error_message   String?  @db.VarChar(2048)
+
+  source          source_registry @relation(fields: [source_id], references: [id], onDelete: Cascade)
+  crawl_jobs_staging crawl_jobs_staging[]
+
+  @@unique([source_id, content_hash])
+  @@index([source_id, fetched_at])
+}
+
+// ---------- Crawl Jobs Staging (未审核的岗位暂存) ----------
+
+model crawl_jobs_staging {
+  id                  BigInt                @id @default(autoincrement())
+  source_id           BigInt
+  snapshot_id         BigInt?
+  source_job_id       String                @db.VarChar(256)
+  source_url          String                @db.VarChar(2048)
+  status              CrawlJobStatus        @default(DISCOVERED)
+  detected_language   String?               @db.VarChar(16) // km / en / zh_CN / unknown
+  title_source        String?               @db.VarChar(512)
+  tasks_source        String?               @db.VarChar(4000)
+  skills_source       String?               @db.VarChar(2000)
+  industry_source     String?               @db.VarChar(128)
+  locations_source    String?               @db.VarChar(2000)
+  salary_source       String?               @db.VarChar(256)
+  shift_source        String?               @db.VarChar(1000)
+  benefits_source     String?               @db.VarChar(2000)
+  parsed_json         Json                  @default("{}")
+  translation_status  CrawlTranslationStatus @default(NOT_STARTED)
+  qa_status           CrawlQAStatus         @default(NOT_RUN)
+  review_status       CrawlQAStatus         @default(NOT_RUN)
+  reject_reason       String?               @db.VarChar(2000)
+  parse_version       String                @db.VarChar(64) @default("1.0")
+  published_job_id    BigInt?               @unique
+  qa_flags            String[]              @default([])
+  created_at          DateTime              @default(now())
+  updated_at          DateTime              @updatedAt
+
+  source              source_registry       @relation(fields: [source_id], references: [id], onDelete: Cascade)
+  snapshot            crawl_snapshots?      @relation(fields: [snapshot_id], references: [id], onDelete: SetNull)
+  job_translations    job_translations[]
+  published_job       jobs?                 @relation(fields: [published_job_id], references: [id], onDelete: SetNull)
+
+  @@unique([source_id, source_job_id, parse_version], name: "crawl_staging_source_job_ver_uq")
+  @@index([source_id, status])
+  @@index([status, created_at])
+}
+
+// ---------- Job Translations (三语结构化) ----------
+
+model job_translations {
+  id                   BigInt       @id @default(autoincrement())
+  staging_job_id       BigInt
+  language             Language
+  title                String       @db.VarChar(512)
+  tasks                String[]     @default([])
+  skills               String[]     @default([])
+  industry             String?      @db.VarChar(128)
+  locations            String[]     @default([])
+  salary_text          String?      @db.VarChar(256)
+  shifts               String[]     @default([])
+  benefits             String[]     @default([])
+  translation_provider String?      @db.VarChar(64) // deepseek / mock / ollama
+  translation_model    String?      @db.VarChar(128)
+  translation_version  String       @db.VarChar(64) @default("1.0")
+  qa_status            CrawlQAStatus @default(NOT_RUN)
+  review_status        CrawlQAStatus @default(NOT_RUN)
+  review_notes         String?      @db.VarChar(2000)
+  warnings             String[]     @default([])
+  created_at           DateTime     @default(now())
+  updated_at           DateTime     @updatedAt
+
+  staging_job          crawl_jobs_staging @relation(fields: [staging_job_id], references: [id], onDelete: Cascade)
+
+  @@unique([staging_job_id, language, translation_version], name: "job_trans_staging_lang_ver_uq")
+  @@index([language])
+}
+
+// ---------- Crawl Runs ----------
 
 model crawl_runs {
-  id            BigInt     @id @default(autoincrement())
-  source_id     String     @db.VarChar(256)
-  started_at    DateTime   @default(now())
-  finished_at   DateTime?
-  status        OutboxStatus @default(PROCESSING)
-  new_count     Int        @default(0)
-  changed_count Int        @default(0)
-  closed_count  Int        @default(0)
-  error_count   Int        @default(0)
-  last_error    String?    @db.VarChar(2048)
+  id                    BigInt       @id @default(autoincrement())
+  source_id             BigInt
+  started_at            DateTime     @default(now())
+  finished_at           DateTime?
+  status                OutboxStatus @default(PROCESSING)
+  new_count             Int          @default(0)
+  changed_count         Int          @default(0)
+  closed_count          Int          @default(0)
+  translated_count      Int          @default(0)
+  review_required_count Int          @default(0)
+  error_count           Int          @default(0)
+  last_error            String?      @db.VarChar(2048)
+
+  source                source_registry @relation(fields: [source_id], references: [id], onDelete: Cascade)
 
   @@index([source_id, started_at])
 }

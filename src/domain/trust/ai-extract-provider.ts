@@ -76,6 +76,13 @@ export interface AIExtractedJobDraft {
 
 export type AILanguage = 'en' | 'zh_CN' | 'km';
 
+export interface RawPromptOptions {
+  system?: string;
+  temperature?: number;
+  responseFormat?: 'json_object' | 'text';
+  timeoutMs?: number;
+}
+
 export abstract class AIExtractProvider {
   abstract readonly providerId: AIProviderId;
   abstract extractCandidateDraft(
@@ -83,6 +90,9 @@ export abstract class AIExtractProvider {
     language: AILanguage,
   ): Promise<AIExtractedCandidateDraft>;
   abstract extractJobDraft(raw: string, language: AILanguage): Promise<AIExtractedJobDraft>;
+  abstract callRawPrompt(userMessage: string, opts?: RawPromptOptions): Promise<string>;
+  getModelLabel?(): string | null;
+  logStartupBanner?(logger: { log: (m: string) => void }): void;
 }
 
 export const AI_PROVIDER_TOKEN = Symbol('AI_PROVIDER_TOKEN');
