@@ -44,6 +44,10 @@ export class TelegramBotService implements OnModuleInit, OnModuleDestroy {
   ) {}
 
   onModuleInit() {
+    if (process.env.CRAWLER_CLI_MODE === 'true') {
+      this.logger.log('Telegram polling disabled for crawler CLI context.');
+      return;
+    }
     const token = APP_ENV.TELEGRAM_BOT_TOKEN;
     if (!token) {
       this.logger.warn(

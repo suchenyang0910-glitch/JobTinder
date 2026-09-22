@@ -13,6 +13,10 @@ import { PrismaService } from '@src/infrastructure/db/prisma/prisma.service';
 import type { source_registry } from '@prisma/client';
 import { SOURCE_TYPE_LABELS } from '@src/domain/crawler/source-review-status-machine';
 
+// The CLI creates the application context for database and crawler services,
+// but must never start a second Telegram long-polling loop beside the API.
+process.env.CRAWLER_CLI_MODE = 'true';
+
 function printSources(rows: source_registry[]): void {
   if (rows.length === 0) {
     console.log('(no source_registry rows)');
