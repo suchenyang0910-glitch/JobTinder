@@ -23,6 +23,11 @@ COPY --from=build /app/package.json /app/pnpm-lock.yaml ./
 COPY --from=build /app/node_modules ./node_modules
 COPY --from=build /app/dist ./dist
 COPY --from=build /app/prisma ./prisma
+# Keep the operational CLI and its TypeScript sources in the production image.
+# These commands are used for controlled crawler runs and review operations.
+COPY --from=build /app/scripts ./scripts
+COPY --from=build /app/src ./src
+COPY --from=build /app/tsconfig*.json ./
 
 EXPOSE 3010
 CMD ["node", "dist/src/main.js"]
