@@ -1,0 +1,439 @@
+// JobTinder V0.1 baseline Prisma schema
+// Stage-1 covers: users, candidate_profiles, companies, jobs, interests, matches,
+// contact_methods, notifications(outbox), audit_events, sessions, crawl_runs
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ---------- Enums ----------
+
+enum UserStatus {
+  ACTIVE
+  PAUSED
+  DELETED
+}
+
+enum UserRole {
+  CANDIDATE
+  COMPANY
+  BOTH
+}
+
+enum Language {
+  zh_CN
+  en
+  km
+}
+
+enum ProfileStatus {
+  DRAFT
+  CONFIRMED
+  PAUSED
+  DELETED
+}
+
+enum SalaryStatus {
+  PROVIDED
+  NOT_PROVIDED
+  NEGOTIABLE
+}
+
+enum JobSourceType {
+  EXTERNAL
+  CLAIMED
+}
+
+enum JobStatus {
+  DRAFT
+  PENDING_REVIEW
+  ACTIVE_EXTERNAL
+  ACTIVE_CLAIMED
+  NEEDS_REVIEW
+  PAUSED
+  CLOSED
+}
+
+enum InterestActorSide {
+  CANDIDATE
+  COMPANY
+}
+
+enum InterestStatus {
+  PENDING
+  ACCEPTED
+  DECLINED
+  WITHDRAWN
+  INVALIDATED
+  EXPIRED
+  MATCHED
+}
+
+enum MatchStatus {
+  MATCHED
+  CONTACT_AVAILABLE
+  ENDED
+  BLOCKED
+  NEEDS_RECONFIRMATION
+}
+
+enum ContactMethodType {
+  TELEGRAM
+  PHONE
+  EMAIL
+  WHATSAPP
+  OTHER
+}
+
+enum VerifiedStatus {
+  UNVERIFIED
+  PENDING
+  VERIFIED
+  REJECTED
+}
+
+enum OutboxStatus {
+  PENDING
+  PROCESSING
+  SUCCEEDED
+  FAILED
+  DEAD
+}
+
+enum NotificationType {
+  INTEREST_RECEIVED
+  INTEREST_REMINDER_24H
+  INTEREST_PAUSE_72H
+  MATCH_CREATED
+  PROFILE_CONFIRMED
+  JOB_PUBLISHED
+  CONTACT_OPENED
+  GENERAL
+}
+
+enum AuditAction {
+  USER_CREATED
+  USER_LANGUAGE_CHANGED
+  PROFILE_DRAFT_CREATED
+  PROFILE_DRAFT_UPDATED
+  PROFILE_CONFIRMED
+  PROFILE_PAUSED
+  PROFILE_RESUMED
+  PROFILE_DELETED
+  COMPANY_VERIFIED
+  JOB_DRAFT_CREATED
+  JOB_CONFIRMED
+  JOB_CLAIMED
+  JOB_CLOSED
+  INTEREST_RECORDED
+  INTEREST_ACCEPTED
+  INTEREST_DECLINED
+  INTEREST_WITHDRAWN
+  INTEREST_EXPIRED_PAUSED
+  MATCH_CREATED
+  MATCH_ENDED
+  MATCH_BLOCKED
+  CONTACT_OPENED
+  NOTIFY_QUEUED
+  NOTIFY_SUCCEEDED
+  NOTIFY_FAILED_DEAD
+  CRAWL_RUN_STARTED
+  CRAWL_RUN_FINISHED
+  TRUST_REPORT_SUBMITTED
+  TRUST_BLOCK_EFFECTIVE
+}
+
+// ---------- Users ----------
+
+model users {
+  id              BigInt     @id @default(autoincrement())
+  telegram_user_id BigInt    @unique
+  telegram_username String?  @db.VarChar(128)
+  telegram_first_name String? @db.VarChar(256)
+  telegram_last_name String?  @db.VarChar(256)
+  language        Language   @default(en)
+  preferred_role  UserRole?
+  status          UserStatus @default(ACTIVE)
+  created_at      DateTime   @default(now())
+  updated_at      DateTime   @updatedAt
+
+  candidate_profiles candidate_profiles[]
+  companies          companies_members[]
+  contact_methods    contact_methods[]
+  sessions           sessions[]
+  audit_events       audit_events[]
+  outbox             notifications[] @relation("outbox_recipient")
+}
+
+// ---------- Candidate Profiles ----------
+
+model candidate_profiles {
+  id                BigInt       @id @default(autoincrement())
+  user_id           BigInt
+  version           Int          @default(1)
+  status            ProfileStatus @default(DRAFT)
+
+  skills            String[]     @default([])
+  industries        String[]     @default([])
+  target_roles      String[]     @default([])
+  task_keywords     String[]     @default([])
+  locations         String[]     @default([])
+  languages_known   String[]     @default([])
+
+  salary_status     SalaryStatus @default(NOT_PROVIDED)
+  salary_text       String?      @db.VarChar(256)
+
+  availability_note String?      @db.VarChar(512)
+
+  field_sources     Json         @default("{}") // { skills: 'ai_extracted'|'user_confirmed', ... }
+
+  draft_source      String?      @db.VarChar(64) // manual / ai / mock
+  ai_provider_id    String?      @db.VarChar(64)
+
+  confirmed_at      DateTime?
+  deleted_at        DateTime?
+  created_at        DateTime     @default(now())
+  updated_at        DateTime     @updatedAt
+
+  user              users        @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  interests         interests[]  @relation("candidate_interests")
+  matches           matches[]    @relation("candidate_matches")
+
+  @@unique([user_id, version], name: "cand_user_version_uq")
+  @@index([user_id, status])
+}
+
+// ---------- Companies & members ----------
+
+model companies {
+  id                  BigInt       @id @default(autoincrement())
+  name                String       @db.VarChar(256)
+  website             String?      @db.VarChar(512)
+  description         String?      @db.VarChar(2000)
+  verification_status VerifiedStatus @default(UNVERIFIED)
+  verified_at         DateTime?
+  created_at          DateTime     @default(now())
+  updated_at          DateTime     @updatedAt
+
+  members             companies_members[]
+  jobs                jobs[]
+}
+
+model companies_members {
+  id          BigInt @id @default(autoincrement())
+  company_id  BigInt
+  user_id     BigInt
+  role        String @db.VarChar(64) // owner / hr / recruiter
+  is_owner    Boolean @default(false)
+  joined_at   DateTime @default(now())
+
+  company     companies @relation(fields: [company_id], references: [id], onDelete: Cascade)
+  user        users     @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@unique([company_id, user_id], name: "company_member_uq")
+  @@index([user_id])
+}
+
+// ---------- Jobs ----------
+
+model jobs {
+  id                BigInt       @id @default(autoincrement())
+  company_id        BigInt?
+  source_type       JobSourceType @default(EXTERNAL)
+  source_url        String?      @db.VarChar(2048)
+  source_job_id     String?      @db.VarChar(256)
+  idempotency_key   String?      @db.VarChar(512) @unique
+
+  title             String       @db.VarChar(512)
+  industry          String?      @db.VarChar(128)
+  skills            String[]     @default([])
+  tasks             String[]     @default([])
+  locations         String[]     @default([])
+  languages_required String[]    @default([])
+  shifts            String[]     @default([])
+
+  salary_status     SalaryStatus @default(NOT_PROVIDED)
+  salary_text       String?      @db.VarChar(256)
+
+  original_published_at DateTime?
+  original_deadline_at DateTime?
+  last_checked_at       DateTime?
+
+  version           Int          @default(1)
+  status            JobStatus    @default(DRAFT)
+
+  created_at        DateTime     @default(now())
+  updated_at        DateTime     @updatedAt
+  closed_at         DateTime?
+
+  company           companies?   @relation(fields: [company_id], references: [id])
+  interests         interests[]  @relation("job_interests")
+  matches           matches[]    @relation("job_matches")
+
+  @@unique([source_job_id, source_type], name: "job_source_uq")
+  @@index([status])
+  @@index([company_id, status])
+}
+
+// ---------- Interests ----------
+
+model interests {
+  id                BigInt           @id @default(autoincrement())
+  idempotency_key   String           @unique @db.VarChar(512)
+
+  candidate_id      BigInt
+  job_id            BigInt
+  actor_side        InterestActorSide
+
+  candidate_version Int
+  job_version       Int
+
+  status            InterestStatus   @default(PENDING)
+  version           Int              @default(1)
+
+  notified_at       DateTime?
+  reminded_at       DateTime?
+  processed_at      DateTime?
+  expires_at        DateTime?
+
+  created_at        DateTime         @default(now())
+  updated_at        DateTime         @updatedAt
+
+  candidate         candidate_profiles @relation("candidate_interests", fields: [candidate_id], references: [id])
+  job               jobs             @relation("job_interests", fields: [job_id], references: [id])
+
+  @@unique([candidate_id, job_id, actor_side, version], name: "interest_cand_job_actor_ver_uq")
+  @@index([job_id, status])
+  @@index([candidate_id, status])
+  @@index([status, notified_at])
+}
+
+// ---------- Matches ----------
+
+model matches {
+  id                BigInt       @id @default(autoincrement())
+  idempotency_key   String       @unique @db.VarChar(512)
+
+  candidate_id      BigInt
+  job_id            BigInt
+  candidate_interest_id BigInt
+  company_interest_id   BigInt
+
+  version           Int          @default(1)
+  status            MatchStatus  @default(CONTACT_AVAILABLE)
+
+  created_at        DateTime     @default(now())
+  contact_opened_at DateTime     @default(now())
+  ended_at          DateTime?
+
+  candidate         candidate_profiles @relation("candidate_matches", fields: [candidate_id], references: [id])
+  job               jobs             @relation("job_matches", fields: [job_id], references: [id])
+
+  @@unique([candidate_id, job_id], name: "match_cand_job_uq")
+  @@index([status])
+}
+
+// ---------- Contact Methods (value_ref - not plaintext in DB) ----------
+
+model contact_methods {
+  id              BigInt            @id @default(autoincrement())
+  user_id         BigInt
+
+  type            ContactMethodType
+  value_ref       String            @db.VarChar(1024) // encrypted/remote ref; NEVER plaintext
+  label           String?           @db.VarChar(128)
+  share_enabled   Boolean           @default(false)
+  verified_status VerifiedStatus    @default(UNVERIFIED)
+  created_at      DateTime          @default(now())
+  updated_at      DateTime          @updatedAt
+
+  user            users             @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@unique([user_id, type], name: "user_contact_type_uq")
+}
+
+// ---------- Notifications Outbox ----------
+
+model notifications {
+  id               BigInt             @id @default(autoincrement())
+  dedupe_key       String             @unique @db.VarChar(512)
+
+  recipient_id     BigInt
+  type             NotificationType
+  payload          Json               @default("{}")
+
+  status           OutboxStatus       @default(PENDING)
+  attempts         Int                @default(0)
+  max_attempts     Int                @default(8)
+  last_error_code  String?            @db.VarChar(128)
+  last_error_desc  String?            @db.VarChar(1024)
+
+  external_ref     String?            @db.VarChar(512) // e.g. telegram msg_id hash, email messageId
+  note_succeeded   String?            @db.VarChar(1024)
+
+  available_after  DateTime           @default(now())
+  created_at       DateTime           @default(now())
+  processed_at     DateTime?
+
+  recipient        users              @relation("outbox_recipient", fields: [recipient_id], references: [id], onDelete: Cascade)
+
+  @@index([status, available_after])
+  @@index([recipient_id, created_at])
+}
+
+// ---------- Audit Events ----------
+
+model audit_events {
+  id           BigInt       @id @default(autoincrement())
+  actor_id     BigInt?
+  action       AuditAction
+  object_type  String       @db.VarChar(64)
+  object_id    BigInt?
+  version      Int?
+  metadata     Json         @default("{}") // NEVER store PII
+
+  created_at   DateTime     @default(now())
+
+  actor        users?       @relation(fields: [actor_id], references: [id], onDelete: SetNull)
+
+  @@index([actor_id, created_at])
+  @@index([object_type, object_id, created_at])
+  @@index([action, created_at])
+}
+
+// ---------- Sessions (grammY persistent storage) ----------
+
+model sessions {
+  session_key  String    @id @db.VarChar(512)
+  session_data Json      @default("{}")
+  user_id      BigInt?
+  expires_at   DateTime
+  updated_at   DateTime  @updatedAt
+
+  user         users?    @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@index([user_id])
+  @@index([expires_at])
+}
+
+// ---------- Crawl Runs (stub for stage-2) ----------
+
+model crawl_runs {
+  id            BigInt     @id @default(autoincrement())
+  source_id     String     @db.VarChar(256)
+  started_at    DateTime   @default(now())
+  finished_at   DateTime?
+  status        OutboxStatus @default(PROCESSING)
+  new_count     Int        @default(0)
+  changed_count Int        @default(0)
+  closed_count  Int        @default(0)
+  error_count   Int        @default(0)
+  last_error    String?    @db.VarChar(2048)
+
+  @@index([source_id, started_at])
+}
