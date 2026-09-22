@@ -10,6 +10,7 @@ RUN pnpm install --frozen-lockfile
 COPY nest-cli.json tsconfig*.json eslint.config.mjs .prettierrc ./
 COPY src ./src
 COPY prisma ./prisma
+COPY scripts ./scripts
 RUN pnpm prisma generate && pnpm build
 
 FROM node:22-bookworm-slim AS runtime
