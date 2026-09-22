@@ -18,6 +18,7 @@ export const zh: Translation = {
     done: () => '完成',
     notProvided: () => '未提供',
     version: (v) => `版本 ${String(v)}`,
+    negotiable: () => '面议',
   },
   ROLES: {
     pick: () => '我来这里的身份是：',
@@ -51,8 +52,7 @@ export const zh: Translation = {
     help: () => 'ℹ️ 平台说明',
   },
   CANDIDATE_ONBOARD: {
-    intro: () =>
-      '我们一步步来完成你的求职资料。\n所有内容之后都能修改。目前 AI 整理已关闭，全程由你手动控制。',
+    intro: () => '我们一步步来完成你的求职资料。\n所有内容之后都能修改。',
     askTargetRoles: () => '第 1/3 步：你想找什么岗位？\n请用逗号分隔，例如：咖啡师，收银员，服务员',
     askSkills: () => '第 2/3 步：你有哪些技能？\n请用逗号分隔，例如：客户服务，英语，收银操作',
     askIndustries: () =>
@@ -64,6 +64,33 @@ export const zh: Translation = {
     confirm: () => '✅ 发布求职资料',
     confirmed: () => '✅ 资料发布成功。我们马上开始匹配。随时输入 /menu。',
     missing_required: (fields) => `还差一步：缺少必填项 ${fields}`,
+  },
+  AI_ONBOARD: {
+    mode_pick: () => '请选择建档方式：',
+    button_ai: () => '🤖 AI 快速建档',
+    button_manual: () => '✍️ 逐步手动填写',
+    ask_candidate_prompt: () =>
+      '请用几句话介绍你想找的工作，例如：\n我叫 Dara，在金边找餐饮、仓库、客服类工作。\n会高棉语和一点英语，可以立刻上岗，期望月薪 250-300 美元。',
+    candidate_extract_loading: () => '🤖 AI 正在整理你的介绍，请稍等…',
+    candidate_extract_failed: () =>
+      'AI 暂时无法整理这段内容。\n你可以重新描述，也可以使用手动填写。',
+    preview_title: () => '🤖 AI 识别到的资料',
+    needs_confirm_title: () => '以下内容还需要你确认：',
+    warnings_title: () => '注意事项：',
+    confirm: () => '✅ 确认资料',
+    edit: () => '✏️ 手动修改',
+    redescribe: () => '🔄 重新描述',
+    cancel: () => '❌ 取消',
+  },
+  COMPANY_ONBOARD: {
+    intro: () => '发布新职位 — 可以用 AI 解析职位描述，也可以手动逐步填写。',
+    button_job_ai: () => '🤖 AI 解析职位描述',
+    button_job_manual: () => '✍️ 手动填写',
+    ask_jd_prompt: () =>
+      '请用自然语言粘贴职位描述，例如：\n"金边 Cafe Happy Cup 招服务员 3 名。\n高棉语 + 基础英语。月薪 220-260$ + 包餐。白班，下周上岗。"',
+    extract_loading: () => '🤖 AI 正在解析职位描述，请稍等…',
+    extract_failed: () => 'AI 暂时无法解析这段职位描述。请重新组织语言，或使用手动填写。',
+    preview_title: () => '🤖 AI 提取到的职位信息',
   },
   ERRORS: {
     AUTH_UNAUTHORIZED: () => '没有权限进行该操作。输入 /start 重新开始。',

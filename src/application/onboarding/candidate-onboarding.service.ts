@@ -19,8 +19,11 @@ import type { ProfileStatus, Language, UserRole, UserStatus, Prisma } from '@pri
 export interface CreateCandidateDraftInput {
   userId: bigint | number;
   initialFields?: Partial<CandidateDraftFields>;
+  initialFieldSources?: Record<string, unknown>;
   source: 'manual' | 'ai' | 'mock';
   aiProviderId?: string;
+  aiContentHash?: string;
+  aiExtractedAt?: Date;
 }
 
 export interface UpdateCandidateDraftInput {
@@ -45,6 +48,8 @@ export interface CandidateProfileView {
   fieldSources: Record<string, unknown>;
   confirmedAt?: Date;
   draftSource?: string | null;
+  aiProviderId?: string | null;
+  aiContentHash?: string | null;
 }
 
 /**
@@ -78,6 +83,12 @@ export class CandidateOnboardingService {
     void IdempotentKeyBuilder; // Imported for future use; idempotency on draft-create done by userId+status lookup
 
     const fields: CandidateDraftFields = input.initialFields ?? {};
+    const fieldSourcesBase = input.initialFieldSources ?? {};
+    const meta: Record<string, unknown> = {};
+    if (input.aiContentHash) meta.aiContentHash = input.aiContentHash;
+    if (input.aiExtractedAt) meta.aiExtractedAt = input.aiExtractedAt.toISOString();
+    const finalFieldSources: Record<string, unknown> =
+      Object.keys(meta).length > 0 ? { ...fieldSourcesBase, __meta: meta } : fieldSourcesBase;
 
     const created = await this.prisma.$transaction(async (tx) => {
       // Idempotency: if a DRAFT already exists for this user, return it rather than creating duplicates.
@@ -109,7 +120,7 @@ export class CandidateOnboardingService {
           salary_status: fields.salaryStatus ?? 'NOT_PROVIDED',
           salary_text: fields.salaryText ?? null,
           availability_note: fields.availabilityNote ?? null,
-          field_sources: {},
+          field_sources: finalFieldSources as unknown as Prisma.InputJsonValue,
           draft_source: input.source,
           ai_provider_id: input.aiProviderId ?? null,
         },
@@ -458,7 +469,11 @@ export class CandidateOnboardingService {
     field_sources: unknown;
     confirmed_at: Date | null;
     draft_source: string | null;
+    ai_provider_id: string | null;
   }): CandidateProfileView {
+    const fs = (row.field_sources ?? {}) as Record<string, unknown>;
+    const meta = (fs.__meta ?? {}) as Record<string, unknown>;
+    const hash = typeof meta.aiContentHash === 'string' ? meta.aiContentHash : null;
     return {
       id: row.id,
       version: row.version,
@@ -474,9 +489,11 @@ export class CandidateOnboardingService {
         salaryText: row.salary_text ?? undefined,
         availabilityNote: row.availability_note ?? undefined,
       },
-      fieldSources: row.field_sources as Record<string, unknown>,
+      fieldSources: fs,
       confirmedAt: row.confirmed_at ?? undefined,
       draftSource: row.draft_source,
+      aiProviderId: row.ai_provider_id,
+      aiContentHash: hash,
     };
   }
 }

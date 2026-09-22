@@ -1,8 +1,6 @@
 import { Injectable, OnModuleInit, OnModuleDestroy, Logger } from '@nestjs/common';
 import { PrismaClient } from '@prisma/client';
 import { APP_ENV } from '@src/shared/env/app-env';
-import { AppError } from '@src/shared/errors/app-error';
-import { AppErrorCode } from '@src/shared/errors/app-error-code';
 
 /**
  * Error codes emitted by Prisma at the runtime/engine layer before any query
@@ -15,24 +13,6 @@ import { AppErrorCode } from '@src/shared/errors/app-error-code';
  *  P1008  Operation timed out (long-running / overloaded)
  *  P1017  Server has closed the connection
  */
-const UNAVAILABLE_CODES = new Set(['P1000', 'P1001', 'P1002', 'P1003', 'P1008', 'P1017']);
-
-function isDbUnavailable(err: unknown): boolean {
-  if (!err) return false;
-  const code =
-    (err as { code?: string }).code ??
-    (err as { errorCode?: string }).errorCode ??
-    ((err as { clientVersion?: unknown }) ? undefined : undefined);
-  if (typeof code === 'string' && UNAVAILABLE_CODES.has(code)) return true;
-  const name = (err as Error).name;
-  if (name === 'PrismaClientInitializationError') return true;
-  if (name === 'PrismaClientRustPanicError') return true;
-  const msg = (err as Error).message ?? '';
-  if (msg.includes('Database `') && msg.includes(' does not exist')) return true;
-  if (msg.includes("Can't reach database server")) return true;
-  return false;
-}
-
 @Injectable()
 export class PrismaService extends PrismaClient implements OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger(PrismaService.name);

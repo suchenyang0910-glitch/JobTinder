@@ -4,6 +4,7 @@ import { FastifyAdapter, type NestFastifyApplication } from '@nestjs/platform-fa
 import { AppModule } from './app.module';
 import { Logger } from '@nestjs/common';
 import { APP_ENV } from './shared/env/app-env';
+import { AIOnboardingService } from './application/onboarding/ai-onboarding.service';
 
 process.on('uncaughtException', (e) => {
   console.error('[uncaughtException]', e?.message, e?.stack);
@@ -36,6 +37,17 @@ async function bootstrap() {
     );
     process.exitCode = 1;
     return;
+  }
+
+  try {
+    const ai = app.get(AIOnboardingService);
+    ai.logStartupBanner();
+  } catch (e) {
+    logger.warn(
+      `AIOnboardingService not available for startup banner: ${
+        e instanceof Error ? e.message : String(e)
+      }`,
+    );
   }
 
   const httpAdapter = app.getHttpAdapter();

@@ -13,6 +13,8 @@ import { createEmptySession } from './telegram-bot-session.types';
 import { UserIdentityService } from '@src/application/identity/user-identity.service';
 import { CandidateOnboardingService } from '@src/application/onboarding/candidate-onboarding.service';
 import { CompanyOnboardingService } from '@src/application/onboarding/company-onboarding.service';
+import { AIOnboardingService } from '@src/application/onboarding/ai-onboarding.service';
+import type { AILanguage } from '@src/domain/trust/ai-extract-provider';
 import { AppError } from '@src/shared/errors/app-error';
 import { AppErrorCode } from '@src/shared/errors/app-error-code';
 import { translateAppError } from './error-translator';
@@ -22,6 +24,7 @@ import {
   isProfileReadyToConfirm,
   type CandidateDraftFields,
 } from '@src/domain/profiles/candidate-profile-domain';
+import { TelegramAIFlowHandler, STEPS as AI_STEPS } from './telegram-ai-flow.handler';
 
 export type TeleCtx = Context & SessionFlavor<TelegramBotSession>;
 
@@ -36,6 +39,8 @@ export class TelegramBotService implements OnModuleInit, OnModuleDestroy {
     private readonly userIdentity: UserIdentityService,
     private readonly candidateOnboarding: CandidateOnboardingService,
     private readonly companyOnboarding: CompanyOnboardingService,
+    private readonly aiFlow: TelegramAIFlowHandler,
+    private readonly aiOnboarding: AIOnboardingService,
   ) {}
 
   onModuleInit() {
@@ -110,6 +115,30 @@ export class TelegramBotService implements OnModuleInit, OnModuleDestroy {
     );
     bot.callbackQuery(/^cand_ob:(confirm|edit)$/, (ctx) =>
       this.safeRun(ctx, (c) => this.handleOnboardConfirmChoice(c)),
+    );
+    bot.callbackQuery(/^cand_mode:(ai|manual)$/, (ctx) =>
+      this.safeRun(ctx, (c) => {
+        const data = c.callbackQuery?.data;
+        if (!data) return Promise.resolve();
+        return this.aiFlow.handleAIModeChosen(c, data.slice(9) as 'ai' | 'manual');
+      }),
+    );
+    bot.callbackQuery(/^cand_ai:(confirm|edit|redescribe|cancel)$/, (ctx) =>
+      this.safeRun(ctx, (c) => {
+        const data = c.callbackQuery?.data;
+        if (!data) return Promise.resolve();
+        return this.aiFlow.handleAICallback(
+          c,
+          data.slice(8) as 'confirm' | 'edit' | 'redescribe' | 'cancel',
+        );
+      }),
+    );
+    bot.callbackQuery(/^company_job:(ai|manual)$/, (ctx) =>
+      this.safeRun(ctx, (c) => {
+        const data = c.callbackQuery?.data;
+        if (!data) return Promise.resolve();
+        return this.handleCompanyJobModeChosen(c, data.slice(12) as 'ai' | 'manual');
+      }),
     );
 
     // Plain text
@@ -208,39 +237,8 @@ export class TelegramBotService implements OnModuleInit, OnModuleDestroy {
   }
 
   private async handleProfileCommand(ctx: TeleCtx) {
-    const { userId } = await this.ensureIdentity(ctx);
-    const T = this.T(ctx);
-
-    const confirmed = await this.candidateOnboarding.getLatestConfirmed(userId);
-    const draft = await this.candidateOnboarding.getActiveDraft(userId);
-    const existing = draft ?? confirmed;
-
-    let draftId: string;
-    if (draft) {
-      ctx.session.candidateDraftVersion = draft.version;
-      draftId = String(draft.id);
-    } else if (confirmed) {
-      const cloned = await this.candidateOnboarding.createDraft({
-        userId,
-        source: 'manual',
-        initialFields: confirmed.fields,
-      });
-      ctx.session.candidateDraftVersion = cloned.version;
-      draftId = String(cloned.id);
-    } else {
-      const created = await this.candidateOnboarding.createDraft({
-        userId,
-        source: 'manual',
-      });
-      ctx.session.candidateDraftVersion = created.version;
-      draftId = String(created.id);
-    }
-
-    ctx.session.candidateDraftId = draftId;
-    ctx.session.step = 'CANDIDATE_ONBOARD_ASK_ROLES';
-    await ctx.reply(T.CANDIDATE_ONBOARD.intro());
-    await ctx.reply(T.CANDIDATE_ONBOARD.askTargetRoles());
-    void existing;
+    await this.ensureIdentity(ctx);
+    return this.aiFlow.handleProfileModeChoice(ctx);
   }
 
   private async handleLanguagePick(ctx: TeleCtx) {
@@ -304,10 +302,10 @@ export class TelegramBotService implements OnModuleInit, OnModuleDestroy {
 
   private async handleCompanyCommand(ctx: TeleCtx) {
     const { userId } = await this.ensureIdentity(ctx);
+    const T = this.T(ctx);
     const latest = await this.companyOnboarding.getLatest(userId);
     const draft =
       latest ?? (await this.companyOnboarding.createDraft({ userId, source: 'manual' }));
-    const T = this.T(ctx);
     const f = draft.fields;
     const lines: string[] = [
       '🏢 Company profile (stage-1 skeleton, stage-2 will add edit wizard)',
@@ -320,7 +318,137 @@ export class TelegramBotService implements OnModuleInit, OnModuleDestroy {
       `• Location: ${f.location ?? T.COMMON.notProvided()}`,
       `• Website: ${f.website ?? T.COMMON.notProvided()}`,
       `• Recruiter: ${f.recruiterName ?? T.COMMON.notProvided()} (${f.recruiterRole ?? '-'})`,
+      '',
+      T.COMPANY_ONBOARD.intro(),
     ];
+    ctx.session.step = 'COMPANY_MODE_PICK';
+    const kb = new InlineKeyboard()
+      .text(T.COMPANY_ONBOARD.button_job_ai(), 'company_job:ai')
+      .row()
+      .text(T.COMPANY_ONBOARD.button_job_manual(), 'company_job:manual');
+    await ctx.reply(lines.join('\n'), { reply_markup: kb });
+  }
+
+  private static toAILanguage(l: Language | undefined): AILanguage {
+    if (l === 'zh_CN' || l === 'en' || l === 'km') return l;
+    return 'en';
+  }
+
+  private async handleCompanyJobModeChosen(ctx: TeleCtx, kind: 'ai' | 'manual'): Promise<void> {
+    const T = this.T(ctx);
+    if (kind === 'manual') {
+      await ctx.answerCallbackQuery?.();
+      await ctx.reply(
+        '✍️ Manual job posting wizard coming in stage-2.\nUse /company anytime to return here.',
+      );
+      ctx.session.step = 'IDLE';
+      return;
+    }
+    await ctx.answerCallbackQuery?.();
+    ctx.session.step = 'COMPANY_AI_AWAIT_JD_TEXT';
+    await ctx.reply(T.COMPANY_ONBOARD.ask_jd_prompt());
+  }
+
+  private async handleCompanyJDText(ctx: TeleCtx, raw: string): Promise<void> {
+    const T = this.T(ctx);
+    const text = raw.trim();
+    if (text.length < 20) {
+      await ctx.reply(T.COMPANY_ONBOARD.extract_failed());
+      const kb = new InlineKeyboard()
+        .text(T.COMPANY_ONBOARD.button_job_ai(), 'company_job:ai')
+        .row()
+        .text(T.COMPANY_ONBOARD.button_job_manual(), 'company_job:manual');
+      await ctx.reply(T.COMPANY_ONBOARD.intro(), { reply_markup: kb });
+      return;
+    }
+    const loading = await ctx.reply(T.COMPANY_ONBOARD.extract_loading());
+    try {
+      const extracted = await this.aiOnboarding.extractJobDraftOnly(
+        text,
+        TelegramBotService.toAILanguage(ctx.session.language),
+      );
+      await ctx.api.deleteMessage(loading.chat.id, loading.message_id).catch(() => undefined);
+      if (extracted.degraded) {
+        await ctx.reply(T.COMPANY_ONBOARD.extract_failed());
+        const kb = new InlineKeyboard()
+          .text(T.COMPANY_ONBOARD.button_job_ai(), 'company_job:ai')
+          .row()
+          .text(T.COMPANY_ONBOARD.button_job_manual(), 'company_job:manual');
+        await ctx.reply(T.COMPANY_ONBOARD.intro(), { reply_markup: kb });
+        return;
+      }
+      ctx.session.step = 'COMPANY_AI_PREVIEW';
+      await this.sendCompanyJobPreview(ctx, extracted);
+    } catch (e) {
+      await ctx.api.deleteMessage(loading.chat.id, loading.message_id).catch(() => undefined);
+      this.logger.warn(
+        `Company JD AI extract failed: ${e instanceof Error ? e.message : String(e)}`,
+      );
+      await ctx.reply(T.COMPANY_ONBOARD.extract_failed());
+      const kb = new InlineKeyboard()
+        .text(T.COMPANY_ONBOARD.button_job_ai(), 'company_job:ai')
+        .row()
+        .text(T.COMPANY_ONBOARD.button_job_manual(), 'company_job:manual');
+      await ctx.reply(T.COMPANY_ONBOARD.intro(), { reply_markup: kb });
+    }
+  }
+
+  private async sendCompanyJobPreview(
+    ctx: TeleCtx,
+    job: {
+      fields: {
+        title: string | null;
+        tasks: string[];
+        skills: string[];
+        industry: string | null;
+        locations: string[];
+        languagesRequired: string[];
+        shifts: string[];
+        salaryStatus: 'PROVIDED' | 'NOT_PROVIDED' | 'NEGOTIABLE';
+        salaryText: string | null;
+        availabilityStart: string | null;
+        housingProvided: boolean | null;
+        mealsProvided: boolean | null;
+        transportProvided: boolean | null;
+        workPermitRequired: boolean | null;
+        headcount: number | null;
+      };
+      unknownFields: string[];
+      warnings: string[];
+    },
+  ): Promise<void> {
+    const T = this.T(ctx);
+    const f = job.fields;
+    const lines: string[] = [T.COMPANY_ONBOARD.preview_title(), ''];
+    lines.push(`• Title: ${f.title ?? T.COMMON.notProvided()}`);
+    if (f.industry) lines.push(`• Industry: ${f.industry}`);
+    if (f.tasks?.length) lines.push(`• Tasks: ${f.tasks.join(', ')}`);
+    if (f.skills?.length) lines.push(`• Skills: ${f.skills.join(', ')}`);
+    if (f.locations?.length) lines.push(`• Locations: ${f.locations.join(', ')}`);
+    if (f.languagesRequired?.length) lines.push(`• Languages: ${f.languagesRequired.join(', ')}`);
+    if (f.shifts?.length) lines.push(`• Shifts: ${f.shifts.join(', ')}`);
+    const salary =
+      f.salaryStatus === 'PROVIDED'
+        ? f.salaryText || ''
+        : f.salaryStatus === 'NEGOTIABLE'
+          ? T.COMMON.negotiable()
+          : T.COMMON.notProvided();
+    lines.push(`• Salary: ${salary}`);
+    if (f.headcount != null) lines.push(`• Headcount: ${String(f.headcount)}`);
+    if (f.availabilityStart) lines.push(`• Start: ${f.availabilityStart}`);
+    const benefits: string[] = [];
+    if (f.housingProvided === true) benefits.push('housing');
+    if (f.mealsProvided === true) benefits.push('meals');
+    if (f.transportProvided === true) benefits.push('transport');
+    if (benefits.length) lines.push(`• Benefits: ${benefits.join(', ')}`);
+    if (f.workPermitRequired === true) lines.push(`• Work permit: required`);
+    if (job.warnings?.length) {
+      lines.push('');
+      lines.push(T.AI_ONBOARD.warnings_title());
+      for (const w of job.warnings.slice(0, 5)) lines.push(`  ⚠️ ${w}`);
+    }
+    lines.push('');
+    lines.push('⚠️ This is a DRAFT preview. Stage-2 will let you confirm and publish the job.');
     await ctx.reply(lines.join('\n'));
   }
 
@@ -332,6 +460,18 @@ export class TelegramBotService implements OnModuleInit, OnModuleDestroy {
     const T = this.T(ctx);
 
     switch (step) {
+      case AI_STEPS.CANDIDATE_MODE_PICK:
+      case AI_STEPS.CANDIDATE_AI_CONFIRM:
+      case 'COMPANY_MODE_PICK':
+      case 'COMPANY_AI_PREVIEW':
+        await this.handleMenu(ctx);
+        return;
+      case AI_STEPS.CANDIDATE_AI_AWAIT_TEXT:
+        await this.aiFlow.handleAICandidateText(ctx, text);
+        return;
+      case 'COMPANY_AI_AWAIT_JD_TEXT':
+        await this.handleCompanyJDText(ctx, text);
+        return;
       case 'CANDIDATE_ONBOARD_ASK_ROLES':
         await this.saveCandidateFieldStep(ctx, 'targetRoles', splitCsv(text));
         ctx.session.step = 'CANDIDATE_ONBOARD_ASK_SKILLS';

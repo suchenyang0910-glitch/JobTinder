@@ -11,10 +11,16 @@ export type TelegramBotStep =
   | 'IDLE'
   | 'CHOOSE_LANGUAGE'
   | 'CHOOSE_ROLE'
+  | 'CANDIDATE_MODE_PICK'
+  | 'CANDIDATE_AI_AWAIT_TEXT'
+  | 'CANDIDATE_AI_CONFIRM'
   | 'CANDIDATE_ONBOARD_ASK_ROLES'
   | 'CANDIDATE_ONBOARD_ASK_SKILLS'
   | 'CANDIDATE_ONBOARD_ASK_INDUSTRIES'
-  | 'CANDIDATE_ONBOARD_CONFIRM';
+  | 'CANDIDATE_ONBOARD_CONFIRM'
+  | 'COMPANY_MODE_PICK'
+  | 'COMPANY_AI_AWAIT_JD_TEXT'
+  | 'COMPANY_AI_PREVIEW';
 
 export interface TelegramBotSession {
   // Identity — populated right after /start upsert. Only IDs, no PII.

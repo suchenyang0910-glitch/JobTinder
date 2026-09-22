@@ -1,13 +1,16 @@
-// OpenAI-compatible provider (works against any /v1/chat/completions endpoint
-// that accepts Bearer tokens, including Groq, Together, xAI, local vLLM, etc.).
-// Stage-1: degraded stub only.
+// OpenAI-compatible provider — shareable between OpenAI, anyscale, groq, etc.
+// Stage-1: degraded stub only. Stage-2 will issue real requests to
+// $AI_OPENAI_BASE_URL/v1/chat/completions with Bearer $AI_OPENAI_API_KEY.
 
-import { Inject, Injectable } from '@nestjs/common';
+import { Inject, Injectable, Logger } from '@nestjs/common';
 import {
   AIExtractProvider,
   type AIExtractedCandidateDraft,
   type AIExtractedJobDraft,
   type AIProviderId,
+  type AILanguage,
+  DEFAULT_CANDIDATE_FIELDS,
+  DEFAULT_JOB_FIELDS,
 } from '@src/domain/trust/ai-extract-provider';
 import { CLOCK_TOKEN } from '@src/shared/clock/clock';
 import type { Clock } from '@src/shared/clock/clock';
@@ -16,45 +19,46 @@ import { APP_ENV } from '@src/shared/env/app-env';
 @Injectable()
 export class OpenAICompatibleAIProvider extends AIExtractProvider {
   readonly providerId: AIProviderId = 'openai-compatible';
+  private readonly logger = new Logger(OpenAICompatibleAIProvider.name);
 
   constructor(@Inject(CLOCK_TOKEN) private readonly clock: Clock) {
     super();
   }
 
-  private getEndpoint(): string {
-    return APP_ENV.AI_OPENAI_COMPATIBLE_BASE_URL || 'https://api.openai.com/v1';
+  logStartupBanner(): void {
+    const base = APP_ENV.AI_OPENAI_COMPATIBLE_BASE_URL || '<not set>';
+    const key = APP_ENV.AI_OPENAI_COMPATIBLE_API_KEY;
+    const keyState = key
+      ? `fingerprint=${key.slice(0, 3)}...${key.slice(-4)}`
+      : 'key not configured';
+    this.logger.log(`AI provider: openai-compatible | base=${base} | ${keyState}`);
   }
 
-  private hasKey(): boolean {
-    return (
-      !!APP_ENV.AI_OPENAI_COMPATIBLE_API_KEY && APP_ENV.AI_OPENAI_COMPATIBLE_API_KEY.length > 8
-    );
-  }
-
-  extractCandidateDraft(_raw: string): Promise<AIExtractedCandidateDraft> {
-    const endpoint = this.getEndpoint();
+  extractCandidateDraft(_raw: string, _language: AILanguage): Promise<AIExtractedCandidateDraft> {
     return Promise.resolve({
       source: 'ai',
       providerId: 'openai-compatible',
       extractedAt: this.clock.now(),
-      fields: {},
+      fields: { ...DEFAULT_CANDIDATE_FIELDS },
+      confidence: {},
+      unknownFields: [],
+      warnings: [
+        'OpenAI-compatible provider is in stage-1 degraded mode — use manual entry or switch providers.',
+      ],
       degraded: true,
-      warnings: this.hasKey()
-        ? [
-            `OpenAI-compat endpoint=${endpoint} configured. Stage-1 stub provider — using manual entry.`,
-          ]
-        : ['OpenAI-compat provider disabled (no API key).'],
     });
   }
 
-  extractJobDraft(_raw: string): Promise<AIExtractedJobDraft> {
+  extractJobDraft(_raw: string, _language: AILanguage): Promise<AIExtractedJobDraft> {
     return Promise.resolve({
       source: 'ai',
       providerId: 'openai-compatible',
       extractedAt: this.clock.now(),
-      fields: {},
+      fields: { ...DEFAULT_JOB_FIELDS },
+      confidence: {},
+      unknownFields: [],
+      warnings: ['OpenAI-compatible provider is in stage-1 degraded mode.'],
       degraded: true,
-      warnings: ['OpenAI-compat provider is stub-only in stage-1.'],
     });
   }
 }

@@ -4,42 +4,51 @@ import {
   type AIExtractedCandidateDraft,
   type AIExtractedJobDraft,
   type AIProviderId,
+  type AILanguage,
+  DEFAULT_CANDIDATE_FIELDS,
+  DEFAULT_JOB_FIELDS,
 } from '@src/domain/trust/ai-extract-provider';
 import type { Clock } from '@src/shared/clock/clock';
 import { CLOCK_TOKEN } from '@src/shared/clock/clock';
-import { Inject } from '@nestjs/common';
+import { Inject, Logger } from '@nestjs/common';
 
-/**
- * MockAIProvider - default for stage-1.
- * Produces empty (degraded) drafts so manual-flow stays available.
- * Never talks to network. Always succeeds (no AI_UNAVAILABLE).
- */
 @Injectable()
 export class MockAIProvider extends AIExtractProvider {
   readonly providerId: AIProviderId = 'mock';
+  private readonly logger = new Logger(MockAIProvider.name);
 
   constructor(@Inject(CLOCK_TOKEN) private readonly clock: Clock) {
     super();
   }
 
-  extractCandidateDraft(_raw: string): Promise<AIExtractedCandidateDraft> {
+  logStartupBanner(): void {
+    this.logger.log('AI provider: mock');
+  }
+
+  extractCandidateDraft(_raw: string, _language: AILanguage): Promise<AIExtractedCandidateDraft> {
     return Promise.resolve({
       source: 'ai',
       providerId: 'mock',
       extractedAt: this.clock.now(),
-      fields: {},
-      warnings: ['Mock provider enabled. Please enter fields manually.'],
+      fields: { ...DEFAULT_CANDIDATE_FIELDS },
+      confidence: {},
+      unknownFields: [],
+      warnings: [
+        'Mock provider enabled. AI results always empty. You can still fill manually or switch providers.',
+      ],
       degraded: true,
     });
   }
 
-  extractJobDraft(_raw: string): Promise<AIExtractedJobDraft> {
+  extractJobDraft(_raw: string, _language: AILanguage): Promise<AIExtractedJobDraft> {
     return Promise.resolve({
       source: 'ai',
       providerId: 'mock',
       extractedAt: this.clock.now(),
-      fields: {},
-      warnings: ['Mock provider enabled. Please enter fields manually.'],
+      fields: { ...DEFAULT_JOB_FIELDS },
+      confidence: {},
+      unknownFields: [],
+      warnings: ['Mock provider enabled. AI results always empty.'],
       degraded: true,
     });
   }
