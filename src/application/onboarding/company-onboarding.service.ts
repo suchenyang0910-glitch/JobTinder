@@ -40,6 +40,18 @@ export interface CompanyProfileView {
   isOwner: boolean;
 }
 
+export interface CompanyJobDraftInput {
+  title: string;
+  industry?: string | null;
+  tasks?: string[];
+  skills?: string[];
+  locations?: string[];
+  languagesRequired?: string[];
+  shifts?: string[];
+  salaryStatus?: 'PROVIDED' | 'NOT_PROVIDED' | 'NEGOTIABLE';
+  salaryText?: string | null;
+}
+
 @Injectable()
 export class CompanyOnboardingService {
   private readonly logger = new Logger(CompanyOnboardingService.name);
@@ -68,6 +80,11 @@ export class CompanyOnboardingService {
           name: f.name ?? `Untitled company (user ${userId.toString()})`,
           website: f.website ?? null,
           description: f.description ?? null,
+          industry: f.industry ?? null,
+          size: f.size ?? null,
+          location: f.location ?? null,
+          recruiter_name: f.recruiterName ?? null,
+          recruiter_role: f.recruiterRole ?? 'owner',
           verification_status: 'UNVERIFIED',
           created_at: now,
         },
@@ -93,11 +110,11 @@ export class CompanyOnboardingService {
         name: result.name ?? undefined,
         website: result.website ?? undefined,
         description: result.description ?? undefined,
-        industry: f.industry,
-        size: f.size,
-        location: f.location,
-        recruiterName: f.recruiterName,
-        recruiterRole: f.recruiterRole ?? 'owner',
+        industry: result.industry ?? f.industry,
+        size: result.size ?? f.size,
+        location: result.location ?? f.location,
+        recruiterName: result.recruiter_name ?? f.recruiterName,
+        recruiterRole: result.recruiter_role ?? f.recruiterRole ?? 'owner',
       },
       verificationStatus: result.verification_status,
       createdAt: result.created_at,
@@ -120,6 +137,11 @@ export class CompanyOnboardingService {
         name: c.name ?? undefined,
         website: c.website ?? undefined,
         description: c.description ?? undefined,
+        industry: c.industry ?? undefined,
+        size: c.size ?? undefined,
+        location: c.location ?? undefined,
+        recruiterName: c.recruiter_name ?? undefined,
+        recruiterRole: c.recruiter_role ?? undefined,
       },
       verificationStatus: c.verification_status,
       createdAt: c.created_at,
@@ -143,11 +165,76 @@ export class CompanyOnboardingService {
         name: c.name ?? undefined,
         website: c.website ?? undefined,
         description: c.description ?? undefined,
+        industry: c.industry ?? undefined,
+        size: c.size ?? undefined,
+        location: c.location ?? undefined,
+        recruiterName: c.recruiter_name ?? undefined,
+        recruiterRole: c.recruiter_role ?? undefined,
       },
       verificationStatus: c.verification_status,
       createdAt: c.created_at,
       verifiedAt: c.verified_at ?? undefined,
       isOwner: membership.is_owner,
     };
+  }
+
+  async updateProfile(userId: bigint | number, edits: CompanyDraftFields): Promise<CompanyProfileView> {
+    const current = await this.getLatest(userId);
+    if (!current || !current.isOwner) throw new AppError({ code: AppErrorCode.COMPANY_MEMBERSHIP_REQUIRED });
+    const c = await this.prisma.companies.update({
+      where: { id: current.id },
+      data: {
+        ...(edits.name !== undefined ? { name: edits.name } : {}),
+        ...(edits.website !== undefined ? { website: edits.website || null } : {}),
+        ...(edits.description !== undefined ? { description: edits.description || null } : {}),
+        ...(edits.industry !== undefined ? { industry: edits.industry || null } : {}),
+        ...(edits.size !== undefined ? { size: edits.size || null } : {}),
+        ...(edits.location !== undefined ? { location: edits.location || null } : {}),
+        ...(edits.recruiterName !== undefined ? { recruiter_name: edits.recruiterName || null } : {}),
+        ...(edits.recruiterRole !== undefined ? { recruiter_role: edits.recruiterRole || null } : {}),
+      },
+    });
+    return { ...current, fields: {
+      name: c.name, website: c.website ?? undefined, description: c.description ?? undefined,
+      industry: c.industry ?? undefined, size: c.size ?? undefined, location: c.location ?? undefined,
+      recruiterName: c.recruiter_name ?? undefined, recruiterRole: c.recruiter_role ?? undefined,
+    }};
+  }
+
+  async createJobDraft(userId: bigint | number, input: CompanyJobDraftInput) {
+    const company = await this.getLatest(userId);
+    if (!company || !company.isOwner) throw new AppError({ code: AppErrorCode.COMPANY_MEMBERSHIP_REQUIRED });
+    return this.prisma.jobs.create({ data: {
+      company_id: company.id, source_type: 'CLAIMED', status: 'DRAFT', title: input.title,
+      industry: input.industry ?? null, tasks: input.tasks ?? [], skills: input.skills ?? [],
+      locations: input.locations ?? [], languages_required: input.languagesRequired ?? [], shifts: input.shifts ?? [],
+      salary_status: input.salaryStatus ?? 'NOT_PROVIDED', salary_text: input.salaryText ?? null,
+    }});
+  }
+
+  async updateJob(userId: bigint | number, jobId: bigint | number, edits: Partial<CompanyJobDraftInput>) {
+    const company = await this.getLatest(userId);
+    const job = await this.prisma.jobs.findFirst({ where: { id: BigInt(jobId), company_id: company?.id } });
+    if (!company?.isOwner || !job) throw new AppError({ code: AppErrorCode.COMPANY_MEMBERSHIP_REQUIRED });
+    return this.prisma.jobs.update({ where: { id: job.id }, data: {
+      ...(edits.title !== undefined ? { title: edits.title } : {}), ...(edits.industry !== undefined ? { industry: edits.industry } : {}),
+      ...(edits.tasks !== undefined ? { tasks: edits.tasks } : {}), ...(edits.skills !== undefined ? { skills: edits.skills } : {}),
+      ...(edits.locations !== undefined ? { locations: edits.locations } : {}), ...(edits.languagesRequired !== undefined ? { languages_required: edits.languagesRequired } : {}),
+      ...(edits.shifts !== undefined ? { shifts: edits.shifts } : {}), ...(edits.salaryStatus !== undefined ? { salary_status: edits.salaryStatus } : {}),
+      ...(edits.salaryText !== undefined ? { salary_text: edits.salaryText } : {}), version: { increment: 1 },
+    }});
+  }
+
+  async publishJob(userId: bigint | number, jobId: bigint | number) {
+    const company = await this.getLatest(userId);
+    const job = await this.prisma.jobs.findFirst({ where: { id: BigInt(jobId), company_id: company?.id } });
+    if (!company?.isOwner || !job) throw new AppError({ code: AppErrorCode.COMPANY_MEMBERSHIP_REQUIRED });
+    return this.prisma.jobs.update({ where: { id: job.id }, data: { status: 'ACTIVE_CLAIMED', version: { increment: 1 } } });
+  }
+
+  async listJobs(userId: bigint | number) {
+    const company = await this.getLatest(userId);
+    if (!company) return [];
+    return this.prisma.jobs.findMany({ where: { company_id: company.id }, orderBy: { updated_at: 'desc' }, take: 20 });
   }
 }

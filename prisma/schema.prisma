@@ -271,6 +271,11 @@ model companies {
   name                String       @db.VarChar(256)
   website             String?      @db.VarChar(512)
   description         String?      @db.VarChar(2000)
+  industry            String?      @db.VarChar(128)
+  size                String?      @db.VarChar(64)
+  location            String?      @db.VarChar(256)
+  recruiter_name      String?      @db.VarChar(256)
+  recruiter_role      String?      @db.VarChar(128)
   verification_status VerifiedStatus @default(UNVERIFIED)
   verified_at         DateTime?
   created_at          DateTime     @default(now())

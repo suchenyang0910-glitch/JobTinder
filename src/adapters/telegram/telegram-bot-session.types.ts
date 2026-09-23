@@ -20,7 +20,15 @@ export type TelegramBotStep =
   | 'CANDIDATE_ONBOARD_CONFIRM'
   | 'COMPANY_MODE_PICK'
   | 'COMPANY_AI_AWAIT_JD_TEXT'
-  | 'COMPANY_AI_PREVIEW';
+  | 'COMPANY_AI_PREVIEW'
+  | 'COMPANY_EDIT_NAME'
+  | 'COMPANY_EDIT_INDUSTRY'
+  | 'COMPANY_EDIT_SIZE'
+  | 'COMPANY_EDIT_LOCATION'
+  | 'COMPANY_EDIT_WEBSITE'
+  | 'COMPANY_EDIT_RECRUITER'
+  | 'COMPANY_JOB_EDIT_TITLE'
+  | 'COMPANY_JOB_EDIT_SALARY';
 
 export interface TelegramBotSession {
   // Identity — populated right after /start upsert. Only IDs, no PII.
@@ -35,6 +43,10 @@ export interface TelegramBotSession {
   // Candidate onboarding — only holds reference to the candidate_profiles DB row.
   candidateDraftId?: string;
   candidateDraftVersion?: number;
+  companyId?: string;
+  companyEditField?: string;
+  companyJobDraftId?: string;
+  companyJobEditId?: string;
 }
 
 export function createEmptySession(): TelegramBotSession {
