@@ -39,6 +39,12 @@ describe('StaticHttpCrawler', () => {
     expect(links).not.toContain('https://example.com/about-us');
   });
 
+  it('does not treat generic language or marketing paths as job links', () => {
+    const html = `<a href="/en/">English</a><a href="/plans/5g-data">5G</a><a href="/careers/2305/logistics-specialist">Logistics</a>`;
+    const links = crawler.discoverJobLinks(html, 'https://example.com/');
+    expect(links).toEqual(['https://example.com/careers/2305/logistics-specialist']);
+  });
+
   it('§2 checkRobots parses User-agent: * Disallow: / as disallowed', async () => {
     const fetch = vi.fn().mockResolvedValue({
       status: 200,

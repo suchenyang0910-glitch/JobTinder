@@ -290,9 +290,13 @@ export class StaticHttpCrawler {
       } catch {
         continue;
       }
+      const path = new URL(resolved).pathname;
+      // Only follow links that look like a job detail or careers listing.
+      // Do not use generic language fragments (e.g. /en/) here: on many
+      // corporate sites that would enqueue the entire marketing navigation.
       if (
-        !/(jobs?|careers?|vacanc\w*|position|kh|en|zh)[/?-]/i.test(resolved) &&
-        !/\/p\d+\.html/i.test(resolved)
+        !/(^|\/)(jobs?|careers?|vacanc\w*|positions?|recruit(?:ment)?|employment)(?:[/?-]|$)/i.test(path) &&
+        !/\/p\d+\.html/i.test(path)
       )
         continue;
       if (seen.has(resolved)) continue;
