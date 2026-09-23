@@ -567,18 +567,28 @@ export class TelegramBotService implements OnModuleInit, OnModuleDestroy {
         return;
       }
       case 'COMPANY_JOB_EDIT_TITLE': {
-        const id = ctx.session.companyJobEditId ?? ctx.session.companyJobDraftId;
-        if (!id) { ctx.session.step = 'IDLE'; await ctx.reply('职位草稿已失效。'); return; }
-        await this.companyOnboarding.updateJob(this.requireUserId(ctx), BigInt(id), { title: text });
-        ctx.session.companyJobDraftId = id; ctx.session.step = 'IDLE';
-        await ctx.reply('✅ 职位名称已保存。发布草稿请再次打开 /company。');
+        const existingId = ctx.session.companyJobEditId ?? ctx.session.companyJobDraftId;
+        let id = existingId;
+        if (id) {
+          await this.companyOnboarding.updateJob(this.requireUserId(ctx), BigInt(id), { title: text });
+        } else {
+          const created = await this.companyOnboarding.createJobDraft(this.requireUserId(ctx), { title: text });
+          id = String(created.id);
+          ctx.session.companyJobDraftId = id;
+          ctx.session.step = 'COMPANY_JOB_EDIT_SALARY';
+          await ctx.reply('请输入薪资（如 800-1200 USD；输入 - 表示面议）：');
+          return;
+        }
+        ctx.session.companyJobDraftId = id; ctx.session.companyJobEditId = undefined; ctx.session.step = 'IDLE';
+        await ctx.reply('✅ 职位名称已保存。');
         return;
       }
       case 'COMPANY_JOB_EDIT_SALARY': {
         const id = ctx.session.companyJobEditId ?? ctx.session.companyJobDraftId;
         if (!id) { ctx.session.step = 'IDLE'; await ctx.reply('职位不存在。'); return; }
         await this.companyOnboarding.updateJob(this.requireUserId(ctx), BigInt(id), { salaryStatus: text === '-' ? 'NEGOTIABLE' : 'PROVIDED', salaryText: text === '-' ? null : text });
-        ctx.session.step = 'IDLE'; await ctx.reply('✅ 薪资已保存。'); return;
+        ctx.session.companyJobDraftId = id; ctx.session.step = 'IDLE';
+        await ctx.reply('✅ 薪资已保存。', { reply_markup: new InlineKeyboard().text('✅ 发布职位', 'company_job_action:publish') }); return;
       }
       case 'CANDIDATE_ONBOARD_ASK_ROLES':
         await this.saveCandidateFieldStep(ctx, 'targetRoles', splitCsv(text));
