@@ -1,3 +1,15 @@
+process.env.CRAWLER_CLI_MODE = 'true';
+process.env.NO_COLOR ??= '0';
+
+if (process.platform === 'win32') {
+  try {
+    const { execSync } = require('node:child_process');
+    execSync('chcp 65001 >NUL 2>&1', { stdio: 'ignore' });
+  } catch {
+    /* best-effort */
+  }
+}
+
 import 'reflect-metadata';
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from '@src/app.module';
@@ -13,9 +25,16 @@ import { PrismaService } from '@src/infrastructure/db/prisma/prisma.service';
 import type { source_registry } from '@prisma/client';
 import { SOURCE_TYPE_LABELS } from '@src/domain/crawler/source-review-status-machine';
 
-// The CLI creates the application context for database and crawler services,
-// but must never start a second Telegram long-polling loop beside the API.
-process.env.CRAWLER_CLI_MODE = 'true';
+const SOURCE_TYPE_LABELS_CLI: Record<string, string> =
+  process.platform === 'win32'
+    ? {
+        OFFICIAL_COMPANY_WEBSITE: 'Official Site',
+        GOVERNMENT_JOB_PORTAL: 'Govt Job Portal',
+        CHAMBER_DIRECTORY: 'Chamber Dir.',
+        THIRD_PARTY_JOB_BOARD: '3rd-Party Board',
+        SOCIAL_PAGE: 'Social Page',
+      }
+    : SOURCE_TYPE_LABELS;
 
 function printSources(rows: source_registry[]): void {
   if (rows.length === 0) {
@@ -25,9 +44,9 @@ function printSources(rows: source_registry[]): void {
   console.log('source_registry:');
   for (const s of rows) {
     const label =
-      SOURCE_TYPE_LABELS[s.source_type as keyof typeof SOURCE_TYPE_LABELS] ?? s.source_type;
+      SOURCE_TYPE_LABELS_CLI[s.source_type as keyof typeof SOURCE_TYPE_LABELS_CLI] ?? s.source_type;
     console.log(
-      `  #${String(s.id)}  ${s.enabled ? '[ON ]' : '[OFF]'}  review=${String(s.review_status).padEnd(9)}  score=${String(s.verification_score ?? '-').padStart(3)}  parser=${s.parser_type.padEnd(11)}  type=${label.padEnd(14)}  name=${s.name}`,
+      `  #${String(s.id)}  ${s.enabled ? '[ON ]' : '[OFF]'}  review=${String(s.review_status).padEnd(9)}  score=${String(s.verification_score ?? '-').padStart(3)}  parser=${s.parser_type.padEnd(11)}  type=${label.padEnd(16)}  name=${s.name}`,
     );
     console.log(`        base=${s.base_url}`);
     console.log(`        jobs=${s.jobs_url}`);
@@ -74,8 +93,60 @@ async function main(): Promise<void> {
     const prisma = app.get(PrismaService);
     switch (cmd) {
       case 'sources': {
-        const rows = await prisma.source_registry.findMany({ orderBy: [{ id: 'asc' }] });
-        printSources(rows);
+        const collectMulti = (flag: string): string | undefined => {
+          const idx = argv.indexOf(flag);
+          if (idx < 0) return undefined;
+          const parts: string[] = [];
+          for (let j = idx + 1; j < argv.length; j++) {
+            const a = argv[j] as string;
+            if (a.startsWith('--')) break;
+            parts.push(a);
+          }
+          return parts.join(' ').trim() || undefined;
+        };
+
+        const limitArg = argv.indexOf('--limit');
+        const offsetArg = argv.indexOf('--offset');
+        const limit = limitArg >= 0 ? Number(argv[limitArg + 1]) : undefined;
+        const offset = offsetArg >= 0 ? Number(argv[offsetArg + 1]) : undefined;
+        const city = collectMulti('--city');
+        const status = collectMulti('--status');
+        const type = collectMulti('--type');
+        const parser = collectMulti('--parser');
+
+        if ((limitArg >= 0 && (!Number.isFinite(limit) || (limit as number) < 1)) ||
+            (offsetArg >= 0 && (!Number.isFinite(offset) || (offset as number) < 0))) {
+          console.error('Usage: crawler:sources [--limit N] [--offset M] [--city "Phnom Penh"] [--status PENDING|APPROVED|SUSPENDED|REJECTED] [--type OFFICIAL_COMPANY_WEBSITE|…] [--parser STATIC_HTML|…]');
+          process.exit(2);
+        }
+
+        const where: Record<string, unknown> = {};
+        if (city) where.city = city;
+        if (status) where.review_status = status.toUpperCase();
+        if (type) where.source_type = type.toUpperCase();
+        if (parser) where.parser_type = parser.toUpperCase();
+
+        const hasWhere = Object.keys(where).length > 0;
+        const [total, matching, rows] = await Promise.all([
+          prisma.source_registry.count(),
+          prisma.source_registry.count({ where: hasWhere ? where : undefined }),
+          prisma.source_registry.findMany({
+            where: hasWhere ? where : undefined,
+            orderBy: [{ id: 'asc' }],
+            skip: offset,
+            take: limit,
+          }),
+        ]);
+        const header =
+          `source_registry: matching=${matching} of total=${total}` +
+          (hasWhere ? ` where=${JSON.stringify(where)}` : '') +
+          (limit || offset ? ` (page ${limit ?? '∞'}; skip=${offset ?? 0})` : '');
+        console.log(header);
+        if (rows.length === 0) {
+          console.log('  (no rows)');
+        } else {
+          printSources(rows);
+        }
         break;
       }
       case 'import-sources': {

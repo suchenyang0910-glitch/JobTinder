@@ -9,12 +9,14 @@ import { CrawlerInternalController } from '@src/adapters/http/crawler-internal.c
 
 void APP_ENV;
 
+const CLI_MODE = process.env.CRAWLER_CLI_MODE === 'true';
+
 @Module({
   imports: [
     SharedModule,
     InfrastructureModule,
     ApplicationModule,
-    TelegramAdapterModule,
+    ...(CLI_MODE ? [] : [TelegramAdapterModule]),
     ScheduleModule.forRoot(),
   ],
   controllers: [CrawlerInternalController],
