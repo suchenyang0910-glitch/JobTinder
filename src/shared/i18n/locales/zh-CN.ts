@@ -25,7 +25,7 @@ export const zh: Translation = {
     candidate: () => '💼 我在找工作',
     company: () => '🏢 我要招聘',
     both: () => '🔀 两者都是',
-    set: (r) => `已保存身份：${r}`,
+    set: (r, nickname) => (nickname ? `${nickname}，已保存身份：${r}` : `已保存身份：${r}`),
   },
   START: {
     welcome_new: (n) =>

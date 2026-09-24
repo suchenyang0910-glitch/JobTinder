@@ -25,7 +25,7 @@ export interface Translation {
     candidate: () => string;
     company: () => string;
     both: () => string;
-    set: (r: string) => string;
+    set: (r: string, nickname?: string) => string;
   };
   START: {
     welcome_new: (n: string) => string;
@@ -115,7 +115,8 @@ export const en: Translation = {
     candidate: () => '💼 Looking for a job',
     company: () => '🏢 Hiring',
     both: () => '🔀 Both',
-    set: (r) => `Preferred role saved: ${r}`,
+    set: (r, nickname) =>
+      nickname ? `${nickname}, preferred role saved: ${r}` : `Preferred role saved: ${r}`,
   },
   START: {
     welcome_new: (n) =>

@@ -315,7 +315,10 @@ export class TelegramBotService implements OnModuleInit, OnModuleDestroy {
     ctx.session.step = 'IDLE';
     const T = this.T(ctx);
     await ctx.answerCallbackQuery();
-    await ctx.reply(T.ROLES.set(role));
+    const nickname = ctx.from?.username
+      ? `@${ctx.from.username}`
+      : ctx.from?.first_name || undefined;
+    await ctx.reply(T.ROLES.set(role, nickname));
 
     if (role === 'CANDIDATE' || role === 'BOTH') {
       // Let new candidates choose AI or manual onboarding before creating a

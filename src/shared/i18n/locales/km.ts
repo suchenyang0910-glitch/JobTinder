@@ -25,7 +25,8 @@ export const km: Translation = {
     candidate: () => '💼 កំពុងស្វែងរកការងារ',
     company: () => '🏢 កំពុងជួល',
     both: () => '🔀 ទាំងពីរ',
-    set: (r) => `តួនាទីត្រូវបានរក្សាទុក៖ ${r}`,
+    set: (r, nickname) =>
+      nickname ? `${nickname} តួនាទីត្រូវបានរក្សាទុក៖ ${r}` : `តួនាទីត្រូវបានរក្សាទុក៖ ${r}`,
   },
   START: {
     welcome_new: (n) =>
