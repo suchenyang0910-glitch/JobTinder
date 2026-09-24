@@ -307,6 +307,47 @@ async function main(): Promise<void> {
         console.log(`Retry translation for staging #${rawId}: added=${r.added}`);
         break;
       }
+      case 'auto-discover': {
+        const scheduler = app.get(CrawlerSchedulerService);
+        const validateLive = argv.includes('--validate-live');
+        console.log(`Running built-in directory discovery feed (validateLive=${validateLive})...`);
+        const r = await scheduler.discoverDirectoryFeed(validateLive);
+        console.log(`Discovered   : ${r.discovered.length}`);
+        for (const id of r.discovered) console.log(`  -> #${String(id)}`);
+        console.log(`Duplicates   : ${r.duplicates}`);
+        console.log(`Valid. Errors: ${r.validationErrors}`);
+        console.log(`Notified     : ${r.notified}`);
+        break;
+      }
+      case 'review-notify': {
+        const prisma = app.get(PrismaService);
+        const CrawlerReviewNotifierService =
+          await import('@src/application/crawler/crawler-review-notifier.service').then(
+            (m) => m.CrawlerReviewNotifierService,
+          );
+        const not = app.get(CrawlerReviewNotifierService);
+        const jobsCount = await not.notifyPendingJobs();
+        console.log(`Pending jobs notified : ${jobsCount}`);
+        const pending = await prisma.source_registry.findMany({
+          where: { review_status: 'PENDING', source_notified_at: null },
+          select: { id: true },
+          orderBy: { id: 'asc' },
+          take: 10,
+        });
+        let src = 0;
+        for (const p of pending) {
+          const ok = await not.notifySource(p.id);
+          if (ok) {
+            await prisma.source_registry.update({
+              where: { id: p.id },
+              data: { source_notified_at: new Date() },
+            });
+            src++;
+          }
+        }
+        console.log(`Pending sources notified: ${src}`);
+        break;
+      }
       case 'help':
       case '--help':
       case '-h':
@@ -325,6 +366,8 @@ async function main(): Promise<void> {
         console.log('  crawler:review --id <id> --reject "reason" [--reason-code X]');
         console.log('  crawler:review --id <id> --stale            Mark STALE + close job');
         console.log('  crawler:retry-translation --id <id>         Re-run translation for staging');
+        console.log('  crawler:auto-discover [--validate-live]     Run built-in directory feed (PENDING+disabled)');
+        console.log('  crawler:review-notify                       Notify admin of pending sources & jobs');
         break;
     }
   } finally {

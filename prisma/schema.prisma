@@ -195,6 +195,7 @@ enum AuditAction {
   CRAWL_REVIEW_REJECTED
   CRAWL_JOB_PUBLISHED
   CRAWL_JOB_MARKED_STALE
+  SOURCE_DISCOVERED
   SOURCE_IMPORTED
   SOURCE_VALIDATED
   SOURCE_APPROVED
@@ -511,6 +512,7 @@ model source_registry {
   verification_score    Int?
   last_validation_at    DateTime?
   validation_error      String?            @db.VarChar(1024)
+  source_notified_at    DateTime?
   created_at            DateTime           @default(now())
   updated_at            DateTime           @updatedAt
 

@@ -42,7 +42,9 @@
     "crawler:run": "node scripts/with-dotenv-override.cjs ts-node -r tsconfig-paths/register scripts/crawler-cli.ts run",
     "crawler:run-all": "node scripts/with-dotenv-override.cjs ts-node -r tsconfig-paths/register scripts/crawler-cli.ts run-all",
     "crawler:review": "node scripts/with-dotenv-override.cjs ts-node -r tsconfig-paths/register scripts/crawler-cli.ts review",
-    "crawler:retry-translation": "node scripts/with-dotenv-override.cjs ts-node -r tsconfig-paths/register scripts/crawler-cli.ts retry-translation"
+    "crawler:retry-translation": "node scripts/with-dotenv-override.cjs ts-node -r tsconfig-paths/register scripts/crawler-cli.ts retry-translation",
+    "crawler:auto-discover": "node scripts/with-dotenv-override.cjs ts-node -r tsconfig-paths/register scripts/crawler-cli.ts auto-discover",
+    "crawler:review-notify": "node scripts/with-dotenv-override.cjs ts-node -r tsconfig-paths/register scripts/crawler-cli.ts review-notify"
   },
   "dependencies": {
     "@nestjs/common": "^11.0.0",
