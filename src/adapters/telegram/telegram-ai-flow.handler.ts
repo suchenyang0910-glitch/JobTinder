@@ -72,6 +72,10 @@ export class TelegramAIFlowHandler {
     const T = this.T(ctx.session.language);
     if (kind === 'manual') {
       await ctx.answerCallbackQuery?.();
+      const userId = this.requireUserId(ctx);
+      const draft = await this.candidateOnboarding.createDraft({ userId, source: 'manual' });
+      ctx.session.candidateDraftId = String(draft.id);
+      ctx.session.candidateDraftVersion = draft.version;
       // Manual flow: use the legacy CANDIDATE_ONBOARD_ASK_ROLES step + intro.
       ctx.session.step = 'CANDIDATE_ONBOARD_ASK_ROLES';
       await ctx.reply(T.CANDIDATE_ONBOARD.intro());

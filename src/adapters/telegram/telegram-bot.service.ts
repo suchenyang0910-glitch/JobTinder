@@ -318,13 +318,10 @@ export class TelegramBotService implements OnModuleInit, OnModuleDestroy {
     await ctx.reply(T.ROLES.set(role));
 
     if (role === 'CANDIDATE' || role === 'BOTH') {
-      const userId = this.requireUserId(ctx);
-      const created = await this.candidateOnboarding.createDraft({ userId, source: 'manual' });
-      ctx.session.candidateDraftId = String(created.id);
-      ctx.session.candidateDraftVersion = created.version;
-      ctx.session.step = 'CANDIDATE_ONBOARD_ASK_ROLES';
-      await ctx.reply(T.CANDIDATE_ONBOARD.intro());
-      await ctx.reply(T.CANDIDATE_ONBOARD.askTargetRoles());
+      // Let new candidates choose AI or manual onboarding before creating a
+      // draft. Creating an empty manual draft here would cause the AI flow to
+      // reuse it and silently skip DeepSeek extraction.
+      await this.aiFlow.handleProfileModeChoice(ctx);
     }
 
     if (role === 'COMPANY' || role === 'BOTH') {
@@ -595,11 +592,19 @@ export class TelegramBotService implements OnModuleInit, OnModuleDestroy {
       return;
     }
     const pending = await this.crawlerReview.listPending(10);
-    if (!pending.length) { await ctx.reply('当前没有待审核职位。'); return; }
+    if (!pending.length) {
+      await ctx.reply('当前没有待审核职位。');
+      return;
+    }
     for (const row of pending) {
-      await ctx.reply(`待审核职位 #${String(row.id)}\n${row.title_source ?? '(无标题)'}\n${row.source_url}`, {
-        reply_markup: new InlineKeyboard().text('✅ 批准发布', `crawler_job:approve:${String(row.id)}`).text('❌ 不批准', `crawler_job:reject:${String(row.id)}`),
-      });
+      await ctx.reply(
+        `待审核职位 #${String(row.id)}\n${row.title_source ?? '(无标题)'}\n${row.source_url}`,
+        {
+          reply_markup: new InlineKeyboard()
+            .text('✅ 批准发布', `crawler_job:approve:${String(row.id)}`)
+            .text('❌ 不批准', `crawler_job:reject:${String(row.id)}`),
+        },
+      );
     }
   }
 
@@ -607,7 +612,8 @@ export class TelegramBotService implements OnModuleInit, OnModuleDestroy {
     const m = /^crawler_job:(approve|reject):(\d+)$/.exec(ctx.callbackQuery?.data ?? '');
     if (!m) return;
     if (!(await this.reviewNotifier.isAdminTelegramUser(ctx.from?.username))) {
-      await ctx.answerCallbackQuery({ text: '没有审核权限', show_alert: true }); return;
+      await ctx.answerCallbackQuery({ text: '没有审核权限', show_alert: true });
+      return;
     }
     const rawId = m[2];
     if (!rawId) return;
@@ -615,11 +621,15 @@ export class TelegramBotService implements OnModuleInit, OnModuleDestroy {
     await ctx.answerCallbackQuery();
     if (m[1] === 'approve') {
       const result = await this.crawlerReview.approve(id, this.requireUserId(ctx));
-      await ctx.editMessageReplyMarkup({ reply_markup: new InlineKeyboard().text('✅ 已批准', 'noop') }).catch(() => undefined);
+      await ctx
+        .editMessageReplyMarkup({ reply_markup: new InlineKeyboard().text('✅ 已批准', 'noop') })
+        .catch(() => undefined);
       await ctx.reply(`✅ 职位 #${String(result.jobId)} 已发布并进入匹配。`);
     } else {
       await this.crawlerReview.reject(id, this.requireUserId(ctx), '管理员通过 Telegram 不批准');
-      await ctx.editMessageReplyMarkup({ reply_markup: new InlineKeyboard().text('❌ 已拒绝', 'noop') }).catch(() => undefined);
+      await ctx
+        .editMessageReplyMarkup({ reply_markup: new InlineKeyboard().text('❌ 已拒绝', 'noop') })
+        .catch(() => undefined);
       await ctx.reply(`已拒绝职位 #${String(id)}，不会进入公开匹配。`);
     }
   }
@@ -628,7 +638,8 @@ export class TelegramBotService implements OnModuleInit, OnModuleDestroy {
     const m = /^crawler_source:(approve|reject):(\d+)$/.exec(ctx.callbackQuery?.data ?? '');
     if (!m) return;
     if (!(await this.reviewNotifier.isAdminTelegramUser(ctx.from?.username))) {
-      await ctx.answerCallbackQuery({ text: '没有审核权限', show_alert: true }); return;
+      await ctx.answerCallbackQuery({ text: '没有审核权限', show_alert: true });
+      return;
     }
     const rawId = m[2];
     if (!rawId) return;
@@ -636,11 +647,19 @@ export class TelegramBotService implements OnModuleInit, OnModuleDestroy {
     await ctx.answerCallbackQuery();
     if (m[1] === 'approve') {
       await this.sourceReview.approve(id, this.requireUserId(ctx), 'Telegram admin approval');
-      await ctx.editMessageReplyMarkup({ reply_markup: new InlineKeyboard().text('✅ 来源已批准', 'noop') }).catch(() => undefined);
+      await ctx
+        .editMessageReplyMarkup({
+          reply_markup: new InlineKeyboard().text('✅ 来源已批准', 'noop'),
+        })
+        .catch(() => undefined);
       await ctx.reply(`✅ 来源 #${String(id)} 已批准，后续采集会进入审核队列。`);
     } else {
       await this.sourceReview.reject(id, this.requireUserId(ctx), '管理员通过 Telegram 不批准');
-      await ctx.editMessageReplyMarkup({ reply_markup: new InlineKeyboard().text('❌ 来源已拒绝', 'noop') }).catch(() => undefined);
+      await ctx
+        .editMessageReplyMarkup({
+          reply_markup: new InlineKeyboard().text('❌ 来源已拒绝', 'noop'),
+        })
+        .catch(() => undefined);
       await ctx.reply(`已拒绝来源 #${String(id)}。`);
     }
   }
