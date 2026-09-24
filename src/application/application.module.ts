@@ -14,6 +14,7 @@ import {
 } from './crawler/source-import.service';
 import { PrismaModule } from '@src/infrastructure/db/prisma/prisma.module';
 import { SharedModule } from '@src/shared/shared.module';
+import { CrawlerReviewNotifierService } from './crawler/crawler-review-notifier.service';
 
 @Module({
   imports: [SharedModule, PrismaModule],
@@ -29,6 +30,7 @@ import { SharedModule } from '@src/shared/shared.module';
     SourceImportService,
     SourceRegistryReviewService,
     SourceValidationService,
+    CrawlerReviewNotifierService,
   ],
   exports: [
     UserIdentityService,
@@ -42,6 +44,7 @@ import { SharedModule } from '@src/shared/shared.module';
     SourceImportService,
     SourceRegistryReviewService,
     SourceValidationService,
+    CrawlerReviewNotifierService,
   ],
 })
 export class ApplicationModule {}

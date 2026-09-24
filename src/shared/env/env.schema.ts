@@ -38,6 +38,7 @@ export const AppEnvSchema = z.object({
   CRAWLER_ENABLED: z.coerce.boolean().default(false),
   CRAWLER_CRON_EXPRESSION: z.string().default('0 */15 * * * *'),
   CRAWLER_INTERNAL_TOKEN: z.string().optional().or(z.literal('')).default(''),
+  CRAWLER_REVIEW_ADMIN_USERNAME: z.string().default('Faxonlei'),
   CRAWLER_DAILY_PAGE_LIMIT_PER_SOURCE: z.coerce.number().int().min(1).max(10000).default(200),
   CRAWLER_REQUEST_TIMEOUT_MS: z.coerce.number().int().min(1000).max(300000).default(20000),
   CRAWLER_MAX_RETRIES: z.coerce.number().int().min(0).max(10).default(2),

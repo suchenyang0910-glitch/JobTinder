@@ -1,5 +1,5 @@
 import { readFileSync } from 'node:fs';
-import { Inject, Injectable, Logger } from '@nestjs/common';
+import { Inject, Injectable, Logger, Optional } from '@nestjs/common';
 import type { Prisma } from '@prisma/client';
 import { PrismaService } from '@src/infrastructure/db/prisma/prisma.service';
 import { AuditRepository } from '@src/infrastructure/db/repositories/audit.repository';
@@ -20,6 +20,7 @@ import {
   type SourceReviewStatusValue,
   type SourceType,
 } from '@src/domain/crawler/source-review-status-machine';
+import { CrawlerReviewNotifierService } from './crawler-review-notifier.service';
 
 export interface SourceImportOptions {
   dryRun?: boolean;
@@ -62,6 +63,7 @@ export class SourceImportService {
     private readonly audit: AuditRepository,
     private readonly crawler: StaticHttpCrawler,
     @Inject(CLOCK_TOKEN) private readonly clock: Clock,
+    @Optional() private readonly notifier?: CrawlerReviewNotifierService,
   ) {}
 
   async importFromCsvFile(
@@ -113,7 +115,6 @@ export class SourceImportService {
           duplicates++;
           report.duplicateOfId = existing.id;
           report.warnings?.push('Duplicate (base_url+jobs_url) already exists; skipped.');
-          reports.push(report);
           continue;
         }
         const validated = row as ValidatedSourceRow;
@@ -166,7 +167,6 @@ export class SourceImportService {
           report.warnings?.push(
             `dry-run enabled; would insert with review_status=${verification.suggestedReviewStatus} score=${verification.score}`,
           );
-          reports.push(report);
           continue;
         }
         const created = await this.prisma.source_registry.create({ data: payload });
@@ -190,6 +190,9 @@ export class SourceImportService {
           },
           now,
         });
+        if (created.review_status === 'PENDING') {
+          await this.notifier?.notifySource(created.id);
+        }
       } catch (e) {
         failed++;
         report.errors?.push(

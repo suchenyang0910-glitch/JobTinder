@@ -29,6 +29,15 @@ export class CrawlerReviewService {
     @Inject(CLOCK_TOKEN) private readonly clock: Clock,
   ) {}
 
+  async listPending(limit = 10) {
+    return this.prisma.crawl_jobs_staging.findMany({
+      where: { status: 'QA_PENDING' },
+      orderBy: { id: 'asc' },
+      take: Math.min(Math.max(limit, 1), 50),
+      select: { id: true, title_source: true, source_url: true, source_id: true },
+    });
+  }
+
   async approve(
     stagingId: bigint,
     actorId: bigint | null,

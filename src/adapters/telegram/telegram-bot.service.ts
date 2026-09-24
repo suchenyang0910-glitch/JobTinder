@@ -25,6 +25,9 @@ import {
   type CandidateDraftFields,
 } from '@src/domain/profiles/candidate-profile-domain';
 import { TelegramAIFlowHandler, STEPS as AI_STEPS } from './telegram-ai-flow.handler';
+import { CrawlerReviewService } from '@src/application/crawler/crawler-review.service';
+import { SourceReviewService as SourceRegistryReviewService } from '@src/application/crawler/source-import.service';
+import { CrawlerReviewNotifierService } from '@src/application/crawler/crawler-review-notifier.service';
 
 export type TeleCtx = Context & SessionFlavor<TelegramBotSession>;
 
@@ -41,6 +44,9 @@ export class TelegramBotService implements OnModuleInit, OnModuleDestroy {
     private readonly companyOnboarding: CompanyOnboardingService,
     private readonly aiFlow: TelegramAIFlowHandler,
     private readonly aiOnboarding: AIOnboardingService,
+    private readonly crawlerReview: CrawlerReviewService,
+    private readonly sourceReview: SourceRegistryReviewService,
+    private readonly reviewNotifier: CrawlerReviewNotifierService,
   ) {}
 
   onModuleInit() {
@@ -106,6 +112,7 @@ export class TelegramBotService implements OnModuleInit, OnModuleDestroy {
     bot.command('cancel', (ctx) => this.safeRun(ctx, (c) => this.handleCancel(c)));
     bot.command('profile', (ctx) => this.safeRun(ctx, (c) => this.handleProfileCommand(c)));
     bot.command('company', (ctx) => this.safeRun(ctx, (c) => this.handleCompanyCommand(c)));
+    bot.command('review', (ctx) => this.safeRun(ctx, (c) => this.handleReviewCommand(c)));
     bot.command('delete', (ctx) => ctx.reply('Feature coming in stage-2. Use /cancel for now.'));
     bot.command('matches', (ctx) => ctx.reply('Feature coming in stage-2. Use /menu to browse.'));
     bot.command('settings', (ctx) => ctx.reply('Feature coming in stage-2.'));
@@ -145,14 +152,34 @@ export class TelegramBotService implements OnModuleInit, OnModuleDestroy {
       }),
     );
     bot.callbackQuery(/^company_profile:(edit|done)$/, (ctx) =>
-      this.safeRun(ctx, (c) => this.handleCompanyProfileAction(c, c.callbackQuery?.data?.split(':')[1] as 'edit' | 'done')),
+      this.safeRun(ctx, (c) =>
+        this.handleCompanyProfileAction(c, c.callbackQuery?.data?.split(':')[1] as 'edit' | 'done'),
+      ),
     );
     bot.callbackQuery(/^company_job_action:(publish|edit|cancel)$/, (ctx) =>
-      this.safeRun(ctx, (c) => this.handleCompanyJobAction(c, c.callbackQuery?.data?.split(':')[1] as 'publish' | 'edit' | 'cancel')),
+      this.safeRun(ctx, (c) =>
+        this.handleCompanyJobAction(
+          c,
+          c.callbackQuery?.data?.split(':')[1] as 'publish' | 'edit' | 'cancel',
+        ),
+      ),
     );
-    bot.callbackQuery(/^company_jobs:list$/, (ctx) => this.safeRun(ctx, (c) => this.handleCompanyJobsList(c)));
+    bot.callbackQuery(/^company_jobs:list$/, (ctx) =>
+      this.safeRun(ctx, (c) => this.handleCompanyJobsList(c)),
+    );
     bot.callbackQuery(/^company_job_edit:(title|salary)(?::\d+)?$/, (ctx) =>
-      this.safeRun(ctx, (c) => this.handleCompanyJobEditStart(c, c.callbackQuery?.data?.split(':')[1] as 'title' | 'salary')),
+      this.safeRun(ctx, (c) =>
+        this.handleCompanyJobEditStart(
+          c,
+          c.callbackQuery?.data?.split(':')[1] as 'title' | 'salary',
+        ),
+      ),
+    );
+    bot.callbackQuery(/^crawler_job:(approve|reject):(\d+)$/, (ctx) =>
+      this.safeRun(ctx, (c) => this.handleCrawlerJobReview(c)),
+    );
+    bot.callbackQuery(/^crawler_source:(approve|reject):(\d+)$/, (ctx) =>
+      this.safeRun(ctx, (c) => this.handleCrawlerSourceReview(c)),
     );
 
     // Plain text
@@ -337,8 +364,10 @@ export class TelegramBotService implements OnModuleInit, OnModuleDestroy {
     ];
     ctx.session.step = 'COMPANY_MODE_PICK';
     const kb = new InlineKeyboard()
-      .text('✏️ 编辑企业资料', 'company_profile:edit').row()
-      .text('📋 查看我的职位', 'company_jobs:list').row()
+      .text('✏️ 编辑企业资料', 'company_profile:edit')
+      .row()
+      .text('📋 查看我的职位', 'company_jobs:list')
+      .row()
       .text(T.COMPANY_ONBOARD.button_job_ai(), 'company_job:ai')
       .row()
       .text(T.COMPANY_ONBOARD.button_job_manual(), 'company_job:manual');
@@ -465,19 +494,32 @@ export class TelegramBotService implements OnModuleInit, OnModuleDestroy {
     lines.push('⚠️ 这是草稿，确认后才会发布；发布后仍可编辑。');
     const userId = this.requireUserId(ctx);
     const draft = await this.companyOnboarding.createJobDraft(userId, {
-      title: f.title ?? 'Untitled job', industry: f.industry, tasks: f.tasks, skills: f.skills,
-      locations: f.locations, languagesRequired: f.languagesRequired, shifts: f.shifts,
-      salaryStatus: f.salaryStatus, salaryText: f.salaryText,
+      title: f.title ?? 'Untitled job',
+      industry: f.industry,
+      tasks: f.tasks,
+      skills: f.skills,
+      locations: f.locations,
+      languagesRequired: f.languagesRequired,
+      shifts: f.shifts,
+      salaryStatus: f.salaryStatus,
+      salaryText: f.salaryText,
     });
     ctx.session.companyJobDraftId = String(draft.id);
-    const kb = new InlineKeyboard().text('✅ 发布职位', 'company_job_action:publish').row()
-      .text('✏️ 修改职位', 'company_job_action:edit').text('❌ 取消', 'company_job_action:cancel');
+    const kb = new InlineKeyboard()
+      .text('✅ 发布职位', 'company_job_action:publish')
+      .row()
+      .text('✏️ 修改职位', 'company_job_action:edit')
+      .text('❌ 取消', 'company_job_action:cancel');
     await ctx.reply(lines.join('\n'), { reply_markup: kb });
   }
 
   private async handleCompanyProfileAction(ctx: TeleCtx, action: 'edit' | 'done') {
     await ctx.answerCallbackQuery().catch(() => undefined);
-    if (action === 'done') { ctx.session.step = 'IDLE'; await ctx.reply('已保存企业资料。'); return; }
+    if (action === 'done') {
+      ctx.session.step = 'IDLE';
+      await ctx.reply('已保存企业资料。');
+      return;
+    }
     ctx.session.step = 'COMPANY_EDIT_NAME';
     await ctx.reply('请输入企业名称：');
   }
@@ -485,30 +527,48 @@ export class TelegramBotService implements OnModuleInit, OnModuleDestroy {
   private async handleCompanyJobsList(ctx: TeleCtx) {
     await ctx.answerCallbackQuery().catch(() => undefined);
     const jobs = await this.companyOnboarding.listJobs(this.requireUserId(ctx));
-    if (!jobs.length) { await ctx.reply('还没有职位。'); return; }
+    if (!jobs.length) {
+      await ctx.reply('还没有职位。');
+      return;
+    }
     for (const j of jobs) {
-      const status = j.status === 'ACTIVE_CLAIMED' ? '已发布' : j.status === 'DRAFT' ? '草稿' : String(j.status);
+      const status =
+        j.status === 'ACTIVE_CLAIMED' ? '已发布' : j.status === 'DRAFT' ? '草稿' : String(j.status);
       const kb = new InlineKeyboard()
         .text(`✏️ 编辑名称`, `company_job_edit:title:${String(j.id)}`)
         .text(`💰 编辑薪资`, `company_job_edit:salary:${String(j.id)}`);
-      await ctx.reply(`职位 #${String(j.id)}\n${j.title}\n状态：${status}\n薪资：${j.salary_text ?? '未提供'}`, { reply_markup: kb });
+      await ctx.reply(
+        `职位 #${String(j.id)}\n${j.title}\n状态：${status}\n薪资：${j.salary_text ?? '未提供'}`,
+        { reply_markup: kb },
+      );
     }
   }
 
   private async handleCompanyJobAction(ctx: TeleCtx, action: 'publish' | 'edit' | 'cancel') {
     await ctx.answerCallbackQuery().catch(() => undefined);
     const id = ctx.session.companyJobDraftId;
-    if (!id) { await ctx.reply('草稿已失效，请重新发布。'); return; }
+    if (!id) {
+      await ctx.reply('草稿已失效，请重新发布。');
+      return;
+    }
     if (action === 'publish') {
       await this.companyOnboarding.publishJob(this.requireUserId(ctx), BigInt(id));
-      ctx.session.companyJobDraftId = undefined; ctx.session.step = 'IDLE';
-      await ctx.reply('✅ 职位已发布。之后可在「查看我的职位」中编辑。'); return;
+      ctx.session.companyJobDraftId = undefined;
+      ctx.session.step = 'IDLE';
+      await ctx.reply('✅ 职位已发布。之后可在「查看我的职位」中编辑。');
+      return;
     }
     if (action === 'cancel') {
-      await this.companyOnboarding.updateJob(this.requireUserId(ctx), BigInt(id), { title: '已取消职位' });
-      ctx.session.companyJobDraftId = undefined; ctx.session.step = 'IDLE'; await ctx.reply('已取消草稿。'); return;
+      await this.companyOnboarding.updateJob(this.requireUserId(ctx), BigInt(id), {
+        title: '已取消职位',
+      });
+      ctx.session.companyJobDraftId = undefined;
+      ctx.session.step = 'IDLE';
+      await ctx.reply('已取消草稿。');
+      return;
     }
-    ctx.session.companyJobEditId = id; ctx.session.step = 'COMPANY_JOB_EDIT_TITLE';
+    ctx.session.companyJobEditId = id;
+    ctx.session.step = 'COMPANY_JOB_EDIT_TITLE';
     await ctx.reply('请输入新的职位名称：');
   }
 
@@ -516,10 +576,73 @@ export class TelegramBotService implements OnModuleInit, OnModuleDestroy {
     await ctx.answerCallbackQuery().catch(() => undefined);
     const parts = ctx.callbackQuery?.data?.split(':') ?? [];
     const id = parts[2] ?? ctx.session.companyJobDraftId;
-    if (!id) { await ctx.reply('职位不存在。'); return; }
+    if (!id) {
+      await ctx.reply('职位不存在。');
+      return;
+    }
     ctx.session.companyJobEditId = id;
     ctx.session.step = field === 'title' ? 'COMPANY_JOB_EDIT_TITLE' : 'COMPANY_JOB_EDIT_SALARY';
-    await ctx.reply(field === 'title' ? '请输入新的职位名称：' : '请输入新的薪资（如 800-1200 USD；输入 - 表示面议）：');
+    await ctx.reply(
+      field === 'title'
+        ? '请输入新的职位名称：'
+        : '请输入新的薪资（如 800-1200 USD；输入 - 表示面议）：',
+    );
+  }
+
+  private async handleReviewCommand(ctx: TeleCtx) {
+    if (!(await this.reviewNotifier.isAdminTelegramUser(ctx.from?.username))) {
+      await ctx.reply('没有审核权限。');
+      return;
+    }
+    const pending = await this.crawlerReview.listPending(10);
+    if (!pending.length) { await ctx.reply('当前没有待审核职位。'); return; }
+    for (const row of pending) {
+      await ctx.reply(`待审核职位 #${String(row.id)}\n${row.title_source ?? '(无标题)'}\n${row.source_url}`, {
+        reply_markup: new InlineKeyboard().text('✅ 批准发布', `crawler_job:approve:${String(row.id)}`).text('❌ 不批准', `crawler_job:reject:${String(row.id)}`),
+      });
+    }
+  }
+
+  async handleCrawlerJobReview(ctx: TeleCtx) {
+    const m = /^crawler_job:(approve|reject):(\d+)$/.exec(ctx.callbackQuery?.data ?? '');
+    if (!m) return;
+    if (!(await this.reviewNotifier.isAdminTelegramUser(ctx.from?.username))) {
+      await ctx.answerCallbackQuery({ text: '没有审核权限', show_alert: true }); return;
+    }
+    const rawId = m[2];
+    if (!rawId) return;
+    const id = BigInt(rawId);
+    await ctx.answerCallbackQuery();
+    if (m[1] === 'approve') {
+      const result = await this.crawlerReview.approve(id, this.requireUserId(ctx));
+      await ctx.editMessageReplyMarkup({ reply_markup: new InlineKeyboard().text('✅ 已批准', 'noop') }).catch(() => undefined);
+      await ctx.reply(`✅ 职位 #${String(result.jobId)} 已发布并进入匹配。`);
+    } else {
+      await this.crawlerReview.reject(id, this.requireUserId(ctx), '管理员通过 Telegram 不批准');
+      await ctx.editMessageReplyMarkup({ reply_markup: new InlineKeyboard().text('❌ 已拒绝', 'noop') }).catch(() => undefined);
+      await ctx.reply(`已拒绝职位 #${String(id)}，不会进入公开匹配。`);
+    }
+  }
+
+  async handleCrawlerSourceReview(ctx: TeleCtx) {
+    const m = /^crawler_source:(approve|reject):(\d+)$/.exec(ctx.callbackQuery?.data ?? '');
+    if (!m) return;
+    if (!(await this.reviewNotifier.isAdminTelegramUser(ctx.from?.username))) {
+      await ctx.answerCallbackQuery({ text: '没有审核权限', show_alert: true }); return;
+    }
+    const rawId = m[2];
+    if (!rawId) return;
+    const id = BigInt(rawId);
+    await ctx.answerCallbackQuery();
+    if (m[1] === 'approve') {
+      await this.sourceReview.approve(id, this.requireUserId(ctx), 'Telegram admin approval');
+      await ctx.editMessageReplyMarkup({ reply_markup: new InlineKeyboard().text('✅ 来源已批准', 'noop') }).catch(() => undefined);
+      await ctx.reply(`✅ 来源 #${String(id)} 已批准，后续采集会进入审核队列。`);
+    } else {
+      await this.sourceReview.reject(id, this.requireUserId(ctx), '管理员通过 Telegram 不批准');
+      await ctx.editMessageReplyMarkup({ reply_markup: new InlineKeyboard().text('❌ 来源已拒绝', 'noop') }).catch(() => undefined);
+      await ctx.reply(`已拒绝来源 #${String(id)}。`);
+    }
   }
 
   private async handleTextMessage(ctx: TeleCtx) {
@@ -548,47 +671,91 @@ export class TelegramBotService implements OnModuleInit, OnModuleDestroy {
       case 'COMPANY_EDIT_LOCATION':
       case 'COMPANY_EDIT_WEBSITE':
       case 'COMPANY_EDIT_RECRUITER': {
-        const fields: Record<string, keyof import('@src/application/onboarding/company-onboarding.service').CompanyDraftFields> = {
-          COMPANY_EDIT_NAME: 'name', COMPANY_EDIT_INDUSTRY: 'industry', COMPANY_EDIT_SIZE: 'size',
-          COMPANY_EDIT_LOCATION: 'location', COMPANY_EDIT_WEBSITE: 'website', COMPANY_EDIT_RECRUITER: 'recruiterName',
+        const fields: Record<
+          string,
+          keyof import('@src/application/onboarding/company-onboarding.service').CompanyDraftFields
+        > = {
+          COMPANY_EDIT_NAME: 'name',
+          COMPANY_EDIT_INDUSTRY: 'industry',
+          COMPANY_EDIT_SIZE: 'size',
+          COMPANY_EDIT_LOCATION: 'location',
+          COMPANY_EDIT_WEBSITE: 'website',
+          COMPANY_EDIT_RECRUITER: 'recruiterName',
         };
         const field = fields[step];
-        if (!field) { ctx.session.step = 'IDLE'; return; }
-        await this.companyOnboarding.updateProfile(this.requireUserId(ctx), { [field]: text === '-' ? '' : text });
+        if (!field) {
+          ctx.session.step = 'IDLE';
+          return;
+        }
+        await this.companyOnboarding.updateProfile(this.requireUserId(ctx), {
+          [field]: text === '-' ? '' : text,
+        });
         const next: Record<string, TelegramBotSession['step']> = {
-          COMPANY_EDIT_NAME: 'COMPANY_EDIT_INDUSTRY', COMPANY_EDIT_INDUSTRY: 'COMPANY_EDIT_SIZE',
-          COMPANY_EDIT_SIZE: 'COMPANY_EDIT_LOCATION', COMPANY_EDIT_LOCATION: 'COMPANY_EDIT_WEBSITE',
-          COMPANY_EDIT_WEBSITE: 'COMPANY_EDIT_RECRUITER', COMPANY_EDIT_RECRUITER: 'IDLE',
+          COMPANY_EDIT_NAME: 'COMPANY_EDIT_INDUSTRY',
+          COMPANY_EDIT_INDUSTRY: 'COMPANY_EDIT_SIZE',
+          COMPANY_EDIT_SIZE: 'COMPANY_EDIT_LOCATION',
+          COMPANY_EDIT_LOCATION: 'COMPANY_EDIT_WEBSITE',
+          COMPANY_EDIT_WEBSITE: 'COMPANY_EDIT_RECRUITER',
+          COMPANY_EDIT_RECRUITER: 'IDLE',
         };
         const nextStep = next[step] ?? 'IDLE';
         ctx.session.step = nextStep;
-        if (ctx.session.step === 'IDLE') await ctx.reply('✅ 企业资料已保存，可随时用 /company 修改。');
-        else await ctx.reply(({ COMPANY_EDIT_INDUSTRY: '请输入行业：', COMPANY_EDIT_SIZE: '请输入企业规模：', COMPANY_EDIT_LOCATION: '请输入工作地点：', COMPANY_EDIT_WEBSITE: '请输入企业官网（没有请输入 -）：', COMPANY_EDIT_RECRUITER: '请输入招聘联系人姓名：' } as Record<string,string>)[nextStep] ?? '请输入：');
+        if (ctx.session.step === 'IDLE')
+          await ctx.reply('✅ 企业资料已保存，可随时用 /company 修改。');
+        else
+          await ctx.reply(
+            (
+              {
+                COMPANY_EDIT_INDUSTRY: '请输入行业：',
+                COMPANY_EDIT_SIZE: '请输入企业规模：',
+                COMPANY_EDIT_LOCATION: '请输入工作地点：',
+                COMPANY_EDIT_WEBSITE: '请输入企业官网（没有请输入 -）：',
+                COMPANY_EDIT_RECRUITER: '请输入招聘联系人姓名：',
+              } as Record<string, string>
+            )[nextStep] ?? '请输入：',
+          );
         return;
       }
       case 'COMPANY_JOB_EDIT_TITLE': {
         const existingId = ctx.session.companyJobEditId ?? ctx.session.companyJobDraftId;
         let id = existingId;
         if (id) {
-          await this.companyOnboarding.updateJob(this.requireUserId(ctx), BigInt(id), { title: text });
+          await this.companyOnboarding.updateJob(this.requireUserId(ctx), BigInt(id), {
+            title: text,
+          });
         } else {
-          const created = await this.companyOnboarding.createJobDraft(this.requireUserId(ctx), { title: text });
+          const created = await this.companyOnboarding.createJobDraft(this.requireUserId(ctx), {
+            title: text,
+          });
           id = String(created.id);
           ctx.session.companyJobDraftId = id;
           ctx.session.step = 'COMPANY_JOB_EDIT_SALARY';
           await ctx.reply('请输入薪资（如 800-1200 USD；输入 - 表示面议）：');
           return;
         }
-        ctx.session.companyJobDraftId = id; ctx.session.companyJobEditId = undefined; ctx.session.step = 'IDLE';
+        ctx.session.companyJobDraftId = id;
+        ctx.session.companyJobEditId = undefined;
+        ctx.session.step = 'IDLE';
         await ctx.reply('✅ 职位名称已保存。');
         return;
       }
       case 'COMPANY_JOB_EDIT_SALARY': {
         const id = ctx.session.companyJobEditId ?? ctx.session.companyJobDraftId;
-        if (!id) { ctx.session.step = 'IDLE'; await ctx.reply('职位不存在。'); return; }
-        await this.companyOnboarding.updateJob(this.requireUserId(ctx), BigInt(id), { salaryStatus: text === '-' ? 'NEGOTIABLE' : 'PROVIDED', salaryText: text === '-' ? null : text });
-        ctx.session.companyJobDraftId = id; ctx.session.step = 'IDLE';
-        await ctx.reply('✅ 薪资已保存。', { reply_markup: new InlineKeyboard().text('✅ 发布职位', 'company_job_action:publish') }); return;
+        if (!id) {
+          ctx.session.step = 'IDLE';
+          await ctx.reply('职位不存在。');
+          return;
+        }
+        await this.companyOnboarding.updateJob(this.requireUserId(ctx), BigInt(id), {
+          salaryStatus: text === '-' ? 'NEGOTIABLE' : 'PROVIDED',
+          salaryText: text === '-' ? null : text,
+        });
+        ctx.session.companyJobDraftId = id;
+        ctx.session.step = 'IDLE';
+        await ctx.reply('✅ 薪资已保存。', {
+          reply_markup: new InlineKeyboard().text('✅ 发布职位', 'company_job_action:publish'),
+        });
+        return;
       }
       case 'CANDIDATE_ONBOARD_ASK_ROLES':
         await this.saveCandidateFieldStep(ctx, 'targetRoles', splitCsv(text));

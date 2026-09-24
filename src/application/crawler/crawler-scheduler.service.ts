@@ -1,5 +1,6 @@
 import { Inject, Injectable, Logger } from '@nestjs/common';
 import { Cron } from '@nestjs/schedule';
+import { Optional } from '@nestjs/common';
 import { PrismaService } from '@src/infrastructure/db/prisma/prisma.service';
 import { CrawlerOrchestrator, type CrawlRunStats } from './crawler-orchestrator.service';
 import { AuditRepository } from '@src/infrastructure/db/repositories/audit.repository';
@@ -7,6 +8,7 @@ import { AuditActionEnum } from '@src/shared/audit/audit-action-enum';
 import { Clock, CLOCK_TOKEN } from '@src/shared/clock/clock';
 import { APP_ENV } from '@src/shared/env/app-env';
 import type { OutboxStatus } from '@prisma/client';
+import { CrawlerReviewNotifierService } from './crawler-review-notifier.service';
 
 @Injectable()
 export class CrawlerSchedulerService {
@@ -18,6 +20,7 @@ export class CrawlerSchedulerService {
     private readonly orchestrator: CrawlerOrchestrator,
     private readonly audit: AuditRepository,
     @Inject(CLOCK_TOKEN) private readonly clock: Clock,
+    @Optional() private readonly notifier?: CrawlerReviewNotifierService,
   ) {}
 
   @Cron(APP_ENV.CRAWLER_CRON_EXPRESSION || '0 */15 * * * *', {
@@ -95,6 +98,7 @@ export class CrawlerSchedulerService {
         now,
       });
       stats = await this.orchestrator.runSource(sourceId);
+      await this.notifier?.notifyPendingJobs(sourceId);
       if (stats.errorCount > 0) finalStatus = 'FAILED';
     } catch (e) {
       stats.errorCount += 1;

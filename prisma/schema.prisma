@@ -573,6 +573,7 @@ model crawl_jobs_staging {
   qa_flags            String[]              @default([])
   created_at          DateTime              @default(now())
   updated_at          DateTime              @updatedAt
+  review_notified_at   DateTime?
 
   source              source_registry       @relation(fields: [source_id], references: [id], onDelete: Cascade)
   snapshot            crawl_snapshots?      @relation(fields: [snapshot_id], references: [id], onDelete: SetNull)
