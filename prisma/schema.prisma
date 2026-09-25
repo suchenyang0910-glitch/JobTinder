@@ -123,10 +123,14 @@ enum CrawlJobStatus {
   TRANSLATED
   QA_PENDING
   REVIEW_REQUIRED
+  DEFERRED
   APPROVED
   REJECTED
   PUBLISHED
+  PAUSED
   STALE
+  EXPIRED
+  CLOSED
 }
 
 enum SourceParserType {
@@ -140,6 +144,7 @@ enum SourceReviewStatus {
   PENDING
   APPROVED
   REJECTED
+  DEFERRED
   SUSPENDED
 }
 
@@ -155,6 +160,26 @@ enum CrawlTranslationStatus {
   IN_PROGRESS
   DONE
   FAILED
+}
+
+enum CandidateJobSearchStatus {
+  LOOKING_JOB
+  INTERVIEWING
+  FOUND_JOB
+  NOT_LOOKING
+}
+
+enum CompanyHiringStatus {
+  OPEN
+  INTERVIEWING
+  FILLED
+  CLOSED
+  CANCELLED
+}
+
+enum StatusSource {
+  MANUAL
+  INFERRED
 }
 
 enum AuditAction {
@@ -201,6 +226,14 @@ enum AuditAction {
   SOURCE_APPROVED
   SOURCE_REJECTED
   SOURCE_SUSPENDED
+  SOURCE_DEFERRED
+  JOB_DEFERRED
+  JOB_RETRANSLATED
+  MATCH_INTERESTED_CANDIDATE
+  MATCH_INTERESTED_COMPANY
+  MATCH_CONTACT_OPENED
+  CANDIDATE_STATUS_CHANGED
+  COMPANY_JOB_STATUS_CHANGED
   TRUST_REPORT_SUBMITTED
   TRUST_BLOCK_EFFECTIVE
 }
@@ -246,6 +279,10 @@ model candidate_profiles {
   salary_text       String?      @db.VarChar(256)
 
   availability_note String?      @db.VarChar(512)
+
+  job_search_status              CandidateJobSearchStatus @default(LOOKING_JOB)
+  job_search_status_updated_at   DateTime?
+  job_search_status_source       StatusSource @default(MANUAL)
 
   field_sources     Json         @default("{}") // { skills: 'ai_extracted'|'user_confirmed', ... }
 
@@ -324,15 +361,22 @@ model jobs {
   salary_text       String?      @db.VarChar(256)
 
   original_published_at DateTime?
-  original_deadline_at DateTime?
+  original_deadline_at  DateTime?
   last_checked_at       DateTime?
+  expiry_date           DateTime?
+  last_confirmed_at     DateTime?
 
-  version           Int          @default(1)
-  status            JobStatus    @default(DRAFT)
+  version               Int          @default(1)
+  status                JobStatus    @default(DRAFT)
 
-  created_at        DateTime     @default(now())
-  updated_at        DateTime     @updatedAt
-  closed_at         DateTime?
+  hiring_status              CompanyHiringStatus @default(OPEN)
+  hiring_status_updated_at   DateTime?
+  hiring_status_source       StatusSource @default(MANUAL)
+
+  created_at            DateTime     @default(now())
+  updated_at            DateTime     @updatedAt
+  closed_at             DateTime?
+  closed_reason         String?      @db.VarChar(1024)
 
   company           companies?   @relation(fields: [company_id], references: [id])
   interests         interests[]  @relation("job_interests")
@@ -513,6 +557,8 @@ model source_registry {
   last_validation_at    DateTime?
   validation_error      String?            @db.VarChar(1024)
   source_notified_at    DateTime?
+  suspended_at          DateTime?
+  disable_reason        String?            @db.VarChar(1024)
   created_at            DateTime           @default(now())
   updated_at            DateTime           @updatedAt
 
@@ -573,6 +619,9 @@ model crawl_jobs_staging {
   parse_version       String                @db.VarChar(64) @default("1.0")
   published_job_id    BigInt?               @unique
   qa_flags            String[]              @default([])
+  expiry_date         DateTime?
+  last_confirmed_at   DateTime?
+  closed_reason       String?               @db.VarChar(1024)
   created_at          DateTime              @default(now())
   updated_at          DateTime              @updatedAt
   review_notified_at   DateTime?

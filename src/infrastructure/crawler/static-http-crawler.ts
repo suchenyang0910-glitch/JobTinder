@@ -295,7 +295,9 @@ export class StaticHttpCrawler {
       // Do not use generic language fragments (e.g. /en/) here: on many
       // corporate sites that would enqueue the entire marketing navigation.
       if (
-        !/(^|\/)(jobs?|careers?|vacanc\w*|positions?|recruit(?:ment)?|employment)(?:[/?-]|$)/i.test(path) &&
+        !/(^|\/)(jobs?|careers?|vacanc\w*|positions?|recruit(?:ment)?|employment)(?:[/?-]|$)/i.test(
+          path,
+        ) &&
         !/\/p\d+\.html/i.test(path)
       )
         continue;

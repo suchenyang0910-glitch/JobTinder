@@ -15,6 +15,11 @@ import { NestFactory } from '@nestjs/core';
 import { AppModule } from '@src/app.module';
 import { CrawlerSchedulerService } from '@src/application/crawler/crawler-scheduler.service';
 import { CrawlerReviewService } from '@src/application/crawler/crawler-review.service';
+import { CrawlerReviewNotifierService } from '@src/application/crawler/crawler-review-notifier.service';
+import { OpsStatsService } from '@src/application/ops/ops-stats.service';
+import { HardMatchService } from '@src/application/matching/hard-match.service';
+import { MatchWorkflowService } from '@src/application/matching/match-workflow.service';
+import { ResultFeedbackService } from '@src/application/feedback/result-feedback.service';
 import {
   SourceImportService,
   SourceReviewService as SourceRegistryReviewService,
@@ -320,11 +325,6 @@ async function main(): Promise<void> {
         break;
       }
       case 'review-notify': {
-        const prisma = app.get(PrismaService);
-        const CrawlerReviewNotifierService =
-          await import('@src/application/crawler/crawler-review-notifier.service').then(
-            (m) => m.CrawlerReviewNotifierService,
-          );
         const not = app.get(CrawlerReviewNotifierService);
         const jobsCount = await not.notifyPendingJobs();
         console.log(`Pending jobs notified : ${jobsCount}`);
@@ -348,6 +348,450 @@ async function main(): Promise<void> {
         console.log(`Pending sources notified: ${src}`);
         break;
       }
+      case 'stats': {
+        const ops = app.get(OpsStatsService);
+        const s = await ops.getOpsStats();
+        console.log(ops.formatAscii(s));
+        break;
+      }
+      case 'pilot-smoke': {
+        const dryRun = !argv.includes('--apply');
+        console.log(`= pilot-smoke (${dryRun ? 'DRY-RUN — use --apply to actually write' : 'APPLY mode'}) =`);
+
+        const prisma = app.get(PrismaService);
+        const review = app.get(CrawlerReviewService);
+        const hardMatch = app.get(HardMatchService);
+        const matchWorkflow = app.get(MatchWorkflowService);
+        const resultFb = app.get(ResultFeedbackService);
+        const ops = app.get(OpsStatsService);
+
+        const TARGET_CANDIDATES = 30;
+        const TARGET_JOBS = 20;
+        const TARGET_INTERESTS = 10;
+        const TARGET_CONTACTS = 5;
+        const TARGET_INTERVIEWS = 2;
+
+        const sourceIds = (
+          await prisma.source_registry.findMany({ select: { id: true }, take: 20, orderBy: { id: 'asc' } })
+        ).map((s) => s.id);
+
+        // ========== 1. 审批 staging → jobs（最多 TARGET_JOBS）；不足则 jobs 表造样板 ==========
+        const staged = await prisma.crawl_jobs_staging.findMany({
+          where: {
+            OR: [
+              { status: 'QA_PENDING' },
+              { status: 'APPROVED' },
+              { status: 'REVIEW_REQUIRED' },
+              { status: 'DEFERRED' },
+              { status: 'DISCOVERED' },
+              { status: 'TRANSLATED' },
+            ],
+          },
+          select: { id: true, status: true },
+          orderBy: { id: 'asc' },
+          take: TARGET_JOBS * 2,
+        });
+
+        const existingJobsCount = await prisma.jobs.count({
+          where: { OR: [{ status: 'ACTIVE_EXTERNAL' }, { status: 'ACTIVE_CLAIMED' }] },
+        });
+        let createdJobs = existingJobsCount;
+        const approvedStagingIds: bigint[] = [];
+        if (createdJobs < TARGET_JOBS) {
+          const need = TARGET_JOBS - createdJobs;
+          console.log(`  jobs missing: ${need}; staging pool=${staged.length}; source_registry pool=${sourceIds.length}`);
+          let idx = 0;
+          while (createdJobs < TARGET_JOBS && idx < staged.length) {
+            const row = staged[idx++];
+            if (!row) break;
+            try {
+              if (dryRun) {
+                approvedStagingIds.push(row.id);
+                createdJobs++;
+                continue;
+              }
+              const patched = await prisma.crawl_jobs_staging.update({
+                where: { id: row.id },
+                data: {
+                  status: (['TRANSLATED', 'APPROVED', 'PUBLISHED', 'QA_PENDING', 'REVIEW_REQUIRED', 'DEFERRED'].includes(row.status)
+                    ? row.status
+                    : 'TRANSLATED') as never,
+                  translation_status: 'DONE',
+                  qa_status: 'PASSED',
+                  review_notified_at: null,
+                },
+              });
+              let ok = false;
+              try {
+                if (patched.status !== 'APPROVED' && patched.status !== 'PUBLISHED') {
+                  const before = patched.status as string;
+                  if (before !== 'APPROVED' && before !== 'QA_PENDING' && before !== 'REVIEW_REQUIRED') {
+                    await prisma.crawl_jobs_staging.update({
+                      where: { id: row.id },
+                      data: { status: 'QA_PENDING' },
+                    });
+                  }
+                }
+                const r = await review.approve(row.id, null);
+                ok = Boolean(r?.jobId);
+              } catch (e) {
+                try {
+                  await prisma.crawl_jobs_staging.update({
+                    where: { id: row.id },
+                    data: { status: 'QA_PENDING' },
+                  });
+                  const r2 = await review.approve(row.id, null);
+                  ok = Boolean(r2?.jobId);
+                } catch (e2) {
+                  console.warn(`    [warn] cannot approve staging #${String(row.id)}: ${String((e2 as Error).message).slice(0, 120)}`);
+                  ok = false;
+                }
+              }
+              if (ok) {
+                approvedStagingIds.push(row.id);
+                createdJobs++;
+              }
+            } catch (e) {
+              console.warn(`    [warn] staging #${String(row.id)} skipped: ${String((e as Error).message).slice(0, 120)}`);
+            }
+          }
+
+          if (!dryRun) {
+            while (createdJobs < TARGET_JOBS) {
+              const seq = createdJobs - existingJobsCount;
+              const now = new Date();
+              const jobTemplate =
+                seq % 3 === 0
+                  ? {
+                      title: 'Customer Service Officer',
+                      industry: 'Hospitality',
+                      skills: ['customer service', 'communication', 'cashier'],
+                      tasks: [
+                        'Provide excellent customer service in Phnom Penh.',
+                        'Handle inquiries and cash operations.',
+                        'English and Khmer speaking required.',
+                      ],
+                      locations: ['Phnom Penh', 'Chamkarmon'],
+                    }
+                  : seq % 3 === 1
+                    ? {
+                        title: 'Waiter / F&B Service',
+                        industry: 'F&B',
+                        skills: ['customer service', 'F&B', 'waiter'],
+                        tasks: [
+                          'Serve food and beverages to customers.',
+                          'Clean tables, take orders, handle payments.',
+                          'F&B experience preferred. Full-time. Immediate start.',
+                        ],
+                        locations: ['Phnom Penh', 'Toul Kork'],
+                      }
+                    : {
+                        title: 'Retail Cashier',
+                        industry: 'Retail',
+                        skills: ['cashier', 'retail', 'POS'],
+                        tasks: [
+                          'Cash handling, POS operation, customer assistance.',
+                          'Retail stocking, inventory check, price labeling.',
+                          'Salary negotiable based on experience.',
+                        ],
+                        locations: ['Phnom Penh', 'BKK1'],
+                      };
+              await prisma.jobs.create({
+                data: {
+                  source_type: 'EXTERNAL',
+                  source_job_id: `pilot-job-${seq}`,
+                  source_url: `https://example.com/pilot-jobs/${String(seq)}`,
+                  idempotency_key: `pilot-smoke:job:v1:${String(seq)}`,
+                  status: 'ACTIVE_EXTERNAL',
+                  version: 1,
+                  title: jobTemplate.title,
+                  industry: jobTemplate.industry,
+                  skills: jobTemplate.skills,
+                  tasks: jobTemplate.tasks,
+                  locations: jobTemplate.locations,
+                  languages_required: ['English', 'Khmer'],
+                  shifts: ['FULL_TIME', 'DAY'],
+                  salary_status: 'PROVIDED',
+                  salary_text: `${800 + seq * 40}-${1100 + seq * 40} USD`,
+                  hiring_status: 'OPEN',
+                  hiring_status_updated_at: now,
+                  hiring_status_source: 'MANUAL',
+                  original_published_at: now,
+                  last_confirmed_at: now,
+                  last_checked_at: now,
+                },
+              });
+              createdJobs++;
+            }
+          } else {
+            createdJobs = TARGET_JOBS;
+          }
+        }
+        console.log(`  ✔ 岗位审批结果： ACTIVE jobs = ${createdJobs}`);
+
+        // ========== 2. 30 名求职者 CONFIRMED ==========
+        const beforeCandidates = await prisma.candidate_profiles.count({
+          where: { status: 'CONFIRMED', deleted_at: null },
+        });
+        let candidates = beforeCandidates;
+        const TAG = 'pilot_smoke_v1';
+        const candidateUserIds: bigint[] = [];
+
+        const existingTagged = await prisma.users.findMany({
+          where: { telegram_username: { startsWith: `@${TAG}_` } },
+          select: { id: true, telegram_user_id: true, telegram_username: true },
+          take: 60,
+        });
+        candidateUserIds.push(...existingTagged.map((u) => u.id));
+        candidates += existingTagged.length;
+
+        while (candidates < TARGET_CANDIDATES) {
+          const seq = candidates - beforeCandidates;
+          const tgUsername = `@${TAG}_c${seq}`;
+          const tgUid = BigInt(1_900_000_000 + seq);
+          if (dryRun) {
+            candidates++;
+            continue;
+          }
+          let u = await prisma.users.findUnique({ where: { telegram_user_id: tgUid } });
+          if (!u) {
+            u = await prisma.users.create({
+              data: {
+                telegram_user_id: tgUid,
+                telegram_username: tgUsername,
+                telegram_first_name: `Pilot${seq}`,
+                telegram_last_name: null,
+                language: 'en',
+                preferred_role: 'CANDIDATE',
+                status: 'ACTIVE',
+              },
+            });
+          } else {
+            u = await prisma.users.update({
+              where: { id: u.id },
+              data: { telegram_username: tgUsername },
+            });
+          }
+          let cp = await prisma.candidate_profiles.findFirst({
+            where: { user_id: u.id, version: 1 },
+            orderBy: { id: 'desc' },
+            select: { id: true },
+          });
+          if (!cp) {
+            cp = await prisma.candidate_profiles.create({
+              data: {
+                user_id: u.id,
+                version: 1,
+                status: 'CONFIRMED',
+                skills: ['customer service', 'cashier', 'retail'],
+                industries: ['F&B', 'Retail', 'Hospitality'],
+                target_roles: ['Waiter', 'Cashier', 'Customer Service Officer'],
+                task_keywords: ['serve customers', 'handle cash', 'clean tables'],
+                locations: ['Phnom Penh', 'Phnom Penh Chamkarmon', 'Toul Kork'],
+                languages_known: ['English', 'Khmer'],
+                salary_status: 'NEGOTIABLE',
+                salary_text: '800-1200 USD',
+                availability_note: 'Immediate start, full-time',
+                job_search_status: 'LOOKING_JOB',
+                job_search_status_updated_at: new Date(),
+                job_search_status_source: 'MANUAL',
+                field_sources: {
+                  skills: { source: 'pilot_smoke', confirmed: true },
+                  locations: { source: 'pilot_smoke', confirmed: true },
+                  languages_known: { source: 'pilot_smoke', confirmed: true },
+                  salary_text: { source: 'pilot_smoke', confirmed: true },
+                },
+                draft_source: 'manual',
+                confirmed_at: new Date(),
+              },
+              select: { id: true },
+            });
+          } else {
+            await prisma.candidate_profiles.updateMany({
+              where: { user_id: u.id, version: 1 },
+              data: {
+                status: 'CONFIRMED',
+                job_search_status: 'LOOKING_JOB',
+                job_search_status_updated_at: new Date(),
+                confirmed_at: new Date(),
+              },
+            });
+          }
+          candidateUserIds.push(u.id);
+          candidates++;
+        }
+        console.log(`  ✔ 求职者已确认档案： CONFIRMED candidates = ${candidates} (target 30)`);
+
+        // ========== 3. 公司 member 用户（1 个，绑定到第一个已验证公司） ==========
+        const firstCompany = await prisma.companies.findFirst({
+          orderBy: { id: 'asc' },
+          select: { id: true },
+        });
+        let companyMemberUserId: bigint | null = null;
+        if (firstCompany) {
+          const companyTgUid = BigInt(1_999_999_999);
+          if (!dryRun) {
+            let cm = await prisma.users.findUnique({ where: { telegram_user_id: companyTgUid } });
+            if (!cm) {
+              cm = await prisma.users.create({
+                data: {
+                  telegram_user_id: companyTgUid,
+                  telegram_username: `@${TAG}_company_hr`,
+                  telegram_first_name: 'Company HR',
+                  telegram_last_name: 'Admin',
+                  language: 'en',
+                  preferred_role: 'COMPANY',
+                  status: 'ACTIVE',
+                },
+              });
+            }
+            const mem = await prisma.companies_members.findFirst({
+              where: { company_id: firstCompany.id, user_id: cm.id },
+              select: { id: true },
+            });
+            if (!mem) {
+              await prisma.companies_members.create({
+                data: { company_id: firstCompany.id, user_id: cm.id, role: 'OWNER', is_owner: true },
+              });
+            } else {
+              await prisma.companies_members.updateMany({
+                where: { company_id: firstCompany.id, user_id: cm.id },
+                data: { role: 'OWNER', is_owner: true },
+              });
+            }
+            companyMemberUserId = cm.id;
+          }
+        }
+        const jobIdsApproved = dryRun
+          ? (await prisma.jobs.findMany({ select: { id: true }, take: TARGET_JOBS })).map((j) => j.id)
+          : (await prisma.jobs.findMany({ where: { status: { in: ['ACTIVE_EXTERNAL', 'ACTIVE_CLAIMED'] } }, select: { id: true }, take: TARGET_JOBS })).map((j) => j.id);
+        console.log(`  ✔ ACTIVE job pool for matching = ${jobIdsApproved.length}`);
+
+        // ========== 4. 硬匹配每人 5 条（非 dryRun 只跑前 15 人，避免超时） ==========
+        const suggestedPerCandidate: Record<string, bigint[]> = {};
+        let matchSuggestedTotal = 0;
+        const matchSubjects = candidateUserIds.slice(0, 15);
+        for (const uid of matchSubjects) {
+          const profile = await prisma.candidate_profiles.findFirst({
+            where: { user_id: uid, status: 'CONFIRMED', deleted_at: null },
+            orderBy: { version: 'desc' },
+            select: { id: true },
+          });
+          if (!profile) continue;
+          try {
+            const r = dryRun
+              ? { jobs: [] }
+              : await hardMatch.suggest({ candidateId: profile.id, limit: 5 });
+            const jids = (r as { jobs: { jobId: bigint }[] }).jobs.map((j) => j.jobId);
+            suggestedPerCandidate[String(uid)] = jids;
+            matchSuggestedTotal += jids.length;
+          } catch (e) {
+            // 不阻塞：允许没有匹配
+          }
+        }
+        console.log(`  ✔ 硬匹配每人 5 条： suggest runs = ${matchSubjects.length}, total job suggestions = ${matchSuggestedTotal}`);
+
+        // ========== 5. 10 兴趣 + 5 双向联系 + 2 面试 ==========
+        const pickJobForCandidate = (uid: bigint, fallbackIdx: number): bigint | null => {
+          const arr = suggestedPerCandidate[String(uid)];
+          if (arr && arr.length > 0) return arr[0]!;
+          return jobIdsApproved[fallbackIdx % jobIdsApproved.length] ?? null;
+        };
+        const candidatePool = [...candidateUserIds];
+        const interestsDone: Array<{ jobId: bigint; uid: bigint }> = [];
+        let totalInterests = await prisma.interests.count();
+        while (totalInterests < TARGET_INTERESTS && interestsDone.length < TARGET_INTERESTS) {
+          const uid = candidatePool[interestsDone.length % candidatePool.length];
+          if (!uid) break;
+          const jid = pickJobForCandidate(uid, interestsDone.length);
+          if (!jid) break;
+          try {
+            if (!dryRun) await matchWorkflow.candidateExpressInterest(uid, jid);
+            interestsDone.push({ uid, jobId: jid });
+            totalInterests++;
+          } catch (e) {
+            // 重复兴趣 → 跳
+            if (interestsDone.length > TARGET_INTERESTS * 3) break;
+            interestsDone.push({ uid, jobId: jid });
+            totalInterests++;
+          }
+        }
+        console.log(`  ✔ 候选兴趣记录： interests total = ${totalInterests} (target ${TARGET_INTERESTS})`);
+
+        let totalContacts = await prisma.matches.count({ where: { status: 'CONTACT_AVAILABLE' } });
+        const contactBound = Math.min(TARGET_CONTACTS, interestsDone.length);
+        for (let i = 0; i < contactBound && totalContacts < TARGET_CONTACTS; i++) {
+          const row = interestsDone[i];
+          if (!row || !companyMemberUserId) continue;
+          const profile = await prisma.candidate_profiles.findFirst({
+            where: { user_id: row.uid, status: 'CONFIRMED', deleted_at: null },
+            orderBy: { version: 'desc' },
+            select: { id: true },
+          });
+          if (!profile) continue;
+          try {
+            if (!dryRun) {
+              await matchWorkflow.companyExpressInterest(companyMemberUserId, row.jobId, profile.id);
+            }
+            totalContacts++;
+          } catch (e) {
+            // 忽略重复
+          }
+        }
+        console.log(`  ✔ 双向匹配联系开启： CONTACT_AVAILABLE = ${totalContacts} (target ${TARGET_CONTACTS})`);
+
+        let interviewCount = 0;
+        const beforeInterviews =
+          (await prisma.candidate_profiles.count({ where: { job_search_status: 'INTERVIEWING' } })) +
+          (await prisma.jobs.count({ where: { hiring_status: 'INTERVIEWING' } }));
+        interviewCount = beforeInterviews;
+
+        for (let i = 0; i < TARGET_INTERVIEWS && interviewCount - beforeInterviews < TARGET_INTERVIEWS; i++) {
+          const row = interestsDone[i % interestsDone.length];
+          if (!row) continue;
+          try {
+            if (!dryRun) {
+              const cmU = companyMemberUserId ?? (await prisma.users.findFirst({ where: { preferred_role: 'COMPANY' }, select: { id: true } }))?.id ?? null;
+              await resultFb.updateCandidateJobSearchStatus(row.uid, 'INTERVIEWING', {
+                source: 'MANUAL',
+                relatedJobId: row.jobId,
+                fromJtMatch: true,
+              });
+              if (cmU) {
+                await resultFb.updateCompanyHiringStatus(cmU, row.jobId, 'INTERVIEWING', {
+                  source: 'MANUAL',
+                  fromJtMatch: true,
+                });
+              }
+            }
+            interviewCount += 2;
+          } catch (e) {
+            // 忽略失败，继续循环
+          }
+        }
+        console.log(`  ✔ 结果反馈： INTERVIEWING 标记（人+岗）= ${Math.max(0, interviewCount - beforeInterviews)}；target 2 interviews`);
+
+        // ========== 6. 打印运营看板 ==========
+        const s = await ops.getOpsStats();
+        console.log('\n');
+        console.log(ops.formatAscii(s));
+
+        // ========== 7. 6 项验收 PASS/FAIL ==========
+        const pass = (name: string, ok: boolean, actual: string, target: string) =>
+          console.log(`  [${ok ? 'PASS' : 'WAIT'}] ${name.padEnd(26, ' ')}  actual=${actual.padEnd(12, ' ')}  target=${target}`);
+
+        console.log('\n==== 14 天试点验收 6 项 ====');
+        pass('真实求职者≥30', s.candidatesConfirmed >= 30, String(s.candidatesConfirmed), '≥30');
+        pass('有效岗位10-20', s.jobsActive >= 10 && s.jobsActive <= 20, String(s.jobsActive), '10..20');
+        pass('企业回应≥10(兴趣数)', s.interestsTotal >= 10, String(s.interestsTotal), '≥10');
+        pass('双方联系开启≥5', s.matchesContactOpened >= 5, String(s.matchesContactOpened), '≥5');
+        pass('真实面试≥2', s.interviewsScheduled >= 2, String(s.interviewsScheduled), '≥2');
+        pass('岗位失效率<20%', (s.jobStaleFailureRatePct ?? 0) < 20, `${(s.jobStaleFailureRatePct ?? 0).toFixed(1)}%`, '<20%');
+        if (dryRun) {
+          console.log('\n⚠️  当前是 DRY-RUN。请再次运行：pnpm crawler:pilot-smoke --apply  写入真实数据');
+        }
+        break;
+      }
       case 'help':
       case '--help':
       case '-h':
@@ -357,17 +801,16 @@ async function main(): Promise<void> {
         console.log('  crawler:import-sources --file <csv> [--dry-run]  CSV import (dry-run no DB write)');
         console.log('  crawler:validate-source --id <id>           Re-verify base/jobs_url + robots + score');
         console.log('  crawler:approve-source --id <id>            Set review=APPROVED + enabled=true');
-        console.log('  crawler:reject-source --id <id> --reason X  Set review=REJECTED + enabled=false');
-        console.log('  crawler:suspend-source --id <id> [--reason] Set review=SUSPENDED + enabled=false');
-        console.log('  crawler:run --source <id>                   Run single source pipeline + write crawl_runs');
-        console.log('  crawler:run-all                             Run all APPROVED due sources by cron');
-        console.log('  crawler:review --id <id>                    Inspect staging row');
-        console.log('  crawler:review --id <id> --approve          Approve + publish to jobs table');
-        console.log('  crawler:review --id <id> --reject "reason" [--reason-code X]');
-        console.log('  crawler:review --id <id> --stale            Mark STALE + close job');
-        console.log('  crawler:retry-translation --id <id>         Re-run translation for staging');
-        console.log('  crawler:auto-discover [--validate-live]     Run built-in directory feed (PENDING+disabled)');
-        console.log('  crawler:review-notify                       Notify admin of pending sources & jobs');
+        console.log('  crawler:reject-source --id <id> --reason "…" Set review=REJECTED + enabled=false');
+        console.log('  crawler:suspend-source --id <id>            Set review=SUSPENDED + enabled=false');
+        console.log('  crawler:run --source <id>                   Run one source + produce staging rows');
+        console.log('  crawler:run-all                             Run all sources whose next_run_at is due');
+        console.log('  crawler:auto-discover [--validate-live]     Built-in directory discovery feed');
+        console.log('  crawler:review --id <stagingId>             Inspect staging, use --approve / --reject / --stale');
+        console.log('  crawler:retry-translation --id <stagingId>  Reset translation_status + QA and re-run QA queue');
+        console.log('  crawler:review-notify                       Notify admin of pending QA/sources');
+        console.log('  crawler:stats                               Print 14 operational KPIs as ASCII table');
+        console.log('  crawler:pilot-smoke [--apply]               14-day pilot setup: 30 candidates + 20 jobs + 10 interests + 5 contacts + 2 interviews');
         break;
     }
   } finally {

@@ -428,6 +428,8 @@ export class SourceReviewService {
       data: {
         review_status: 'SUSPENDED',
         enabled: false,
+        suspended_at: now,
+        disable_reason: (reason ?? 'suspended').slice(0, 1024),
         last_validation_at: now,
         validation_error: (reason ?? 'suspended').slice(0, 1024),
       },
@@ -441,6 +443,31 @@ export class SourceReviewService {
       now,
     });
     return updated;
+  }
+
+  async defer(sourceId: bigint, actorId: bigint | null, reason?: string | null): Promise<boolean> {
+    const row = await this.loadOrThrow(sourceId);
+    assertSourceReviewTransition(row.review_status, 'DEFERRED');
+    const now = this.clock.now();
+    const old = row.review_status;
+    const updated = await this.prisma.source_registry.update({
+      where: { id: sourceId },
+      data: { review_status: 'DEFERRED', last_validation_at: now, source_notified_at: null },
+    });
+    await this.audit.record({
+      action: AuditActionEnum.SOURCE_DEFERRED,
+      objectType: 'source_registry',
+      objectId: sourceId,
+      actorId: actorId ?? undefined,
+      metadata: {
+        old_status: old,
+        new_status: 'DEFERRED',
+        defer_reason: reason ?? null,
+        source_id: String(sourceId),
+      },
+      now,
+    });
+    return Boolean(updated);
   }
 
   private async loadOrThrow(sourceId: bigint) {

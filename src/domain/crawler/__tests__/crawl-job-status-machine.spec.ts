@@ -17,15 +17,19 @@ const ALL_STATUSES: CrawlJobStatusValue[] = [
   'TRANSLATED',
   'QA_PENDING',
   'REVIEW_REQUIRED',
+  'DEFERRED',
   'APPROVED',
   'REJECTED',
   'PUBLISHED',
+  'PAUSED',
   'STALE',
+  'EXPIRED',
+  'CLOSED',
 ];
 
 describe('CrawlJobStatus machine (§ transitions + §15 visibility)', () => {
-  it('declares exactly 10 statuses with STALE included (10 total keys)', () => {
-    expect(Object.keys(CRAWL_JOB_STATUS_TRANSITIONS)).toHaveLength(10);
+  it('declares exactly 14 statuses incl lifecycle DEFERRED/PAUSED/EXPIRED/CLOSED', () => {
+    expect(Object.keys(CRAWL_JOB_STATUS_TRANSITIONS)).toHaveLength(14);
   });
 
   it('DISCOVERED → FETCHED / REJECTED / STALE allowed, disallows QA_PENDING', () => {
@@ -57,23 +61,55 @@ describe('CrawlJobStatus machine (§ transitions + §15 visibility)', () => {
     expect(canTransitionCrawlJob('APPROVED', 'QA_PENDING')).toBe(false);
   });
 
-  it('PUBLISHED → STALE only', () => {
+  it('PUBLISHED → STALE / PAUSED / EXPIRED / CLOSED / DEFERRED allowed', () => {
     expect(canTransitionCrawlJob('PUBLISHED', 'STALE')).toBe(true);
-    const otherStatuses = ALL_STATUSES.filter((x) => x !== 'STALE');
-    for (const s of otherStatuses) {
-      if (s === 'PUBLISHED') {
-        expect(canTransitionCrawlJob('PUBLISHED', s)).toBe(false);
+    expect(canTransitionCrawlJob('PUBLISHED', 'PAUSED')).toBe(true);
+    expect(canTransitionCrawlJob('PUBLISHED', 'EXPIRED')).toBe(true);
+    expect(canTransitionCrawlJob('PUBLISHED', 'CLOSED')).toBe(true);
+    expect(canTransitionCrawlJob('PUBLISHED', 'DEFERRED')).toBe(true);
+    const forbid = ALL_STATUSES.filter(
+      (s) => !['STALE', 'PAUSED', 'EXPIRED', 'CLOSED', 'DEFERRED', 'PUBLISHED'].includes(s),
+    );
+    for (const s of forbid) expect(canTransitionCrawlJob('PUBLISHED', s)).toBe(false);
+  });
+
+  it('APPROVED → PUBLISHED / STALE / PAUSED / EXPIRED / CLOSED / DEFERRED allowed (not REJECTED directly)', () => {
+    for (const s of [
+      'PUBLISHED',
+      'STALE',
+      'PAUSED',
+      'EXPIRED',
+      'CLOSED',
+      'DEFERRED',
+    ] as CrawlJobStatusValue[]) {
+      expect(canTransitionCrawlJob('APPROVED', s)).toBe(true);
+    }
+    expect(canTransitionCrawlJob('APPROVED', 'REJECTED')).toBe(false);
+    expect(canTransitionCrawlJob('APPROVED', 'QA_PENDING')).toBe(false);
+  });
+
+  it('REJECTED → DEFERRED / QA_PENDING / REVIEW_REQUIRED allowed; other disallowed', () => {
+    for (const s of ALL_STATUSES) {
+      if (['DEFERRED', 'QA_PENDING', 'REVIEW_REQUIRED'].includes(s)) {
+        expect(canTransitionCrawlJob('REJECTED', s)).toBe(true);
       } else {
-        expect(canTransitionCrawlJob('PUBLISHED', s)).toBe(false);
+        expect(canTransitionCrawlJob('REJECTED', s)).toBe(false);
       }
     }
   });
 
-  it('REJECTED & STALE are terminal (no outgoing transitions)', () => {
+  it('STALE → CLOSED / EXPIRED / PUBLISHED / DEFERRED allowed, others not (not terminal anymore)', () => {
+    for (const s of ['CLOSED', 'EXPIRED', 'PUBLISHED', 'DEFERRED'] as CrawlJobStatusValue[]) {
+      expect(canTransitionCrawlJob('STALE', s)).toBe(true);
+    }
     for (const s of ALL_STATUSES) {
-      expect(canTransitionCrawlJob('REJECTED', s)).toBe(false);
+      if (['CLOSED', 'EXPIRED', 'PUBLISHED', 'DEFERRED'].includes(s)) continue;
       expect(canTransitionCrawlJob('STALE', s)).toBe(false);
     }
+  });
+
+  it('CLOSED is fully terminal (no outgoing)', () => {
+    for (const s of ALL_STATUSES) expect(canTransitionCrawlJob('CLOSED', s)).toBe(false);
   });
 
   it('assertCrawlJobTransition throws AppError CRAWL_INVALID_STATUS_TRANSITION on illegal', () => {

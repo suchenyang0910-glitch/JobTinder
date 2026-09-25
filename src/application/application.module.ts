@@ -7,6 +7,11 @@ import { CrawlerQAService } from './crawler/crawler-qa.service';
 import { CrawlerOrchestrator } from './crawler/crawler-orchestrator.service';
 import { CrawlerReviewService } from './crawler/crawler-review.service';
 import { CrawlerSchedulerService } from './crawler/crawler-scheduler.service';
+import { CrawlerLifecycleService } from './crawler/crawler-lifecycle.service';
+import { HardMatchService } from './matching/hard-match.service';
+import { MatchWorkflowService } from './matching/match-workflow.service';
+import { ResultFeedbackService } from './feedback/result-feedback.service';
+import { OpsStatsService } from './ops/ops-stats.service';
 import {
   SourceImportService,
   SourceReviewService as SourceRegistryReviewService,
@@ -28,6 +33,11 @@ import { SourceDiscoveryService } from './crawler/source-discovery.service';
     CrawlerOrchestrator,
     CrawlerReviewService,
     CrawlerSchedulerService,
+    CrawlerLifecycleService,
+    HardMatchService,
+    MatchWorkflowService,
+    ResultFeedbackService,
+    OpsStatsService,
     SourceImportService,
     SourceRegistryReviewService,
     SourceValidationService,
@@ -43,6 +53,11 @@ import { SourceDiscoveryService } from './crawler/source-discovery.service';
     CrawlerOrchestrator,
     CrawlerReviewService,
     CrawlerSchedulerService,
+    CrawlerLifecycleService,
+    HardMatchService,
+    MatchWorkflowService,
+    ResultFeedbackService,
+    OpsStatsService,
     SourceImportService,
     SourceRegistryReviewService,
     SourceValidationService,

@@ -240,12 +240,17 @@ export class CrawlerReviewService {
     const staging = await this.prisma.crawl_jobs_staging.findUnique({ where: { id: stagingId } });
     if (!staging) throw new AppError({ code: AppErrorCode.CRAWL_STAGING_NOT_FOUND });
     const from = staging.status;
-    if (from !== 'REVIEW_REQUIRED' && from !== 'TRANSLATED' && from !== 'QA_PENDING') {
+    if (
+      from !== 'REVIEW_REQUIRED' &&
+      from !== 'TRANSLATED' &&
+      from !== 'QA_PENDING' &&
+      from !== 'DEFERRED'
+    ) {
       assertCrawlJobTransition(from, 'TRANSLATED');
     }
     await this.prisma.crawl_jobs_staging.update({
       where: { id: stagingId },
-      data: { translation_status: 'NOT_STARTED', updated_at: now },
+      data: { translation_status: 'NOT_STARTED', review_notified_at: null, updated_at: now },
     });
     const res = await this.orchestrator.translateStaging(stagingId);
     await this.audit.record({
@@ -256,7 +261,58 @@ export class CrawlerReviewService {
       metadata: { retry: '1' },
       now,
     });
+    await this.audit.record({
+      action: AuditActionEnum.JOB_RETRANSLATED,
+      objectType: 'crawl_jobs_staging',
+      objectId: stagingId,
+      actorId: actorId ?? undefined,
+      metadata: {
+        old_status: from,
+        new_status: 'QA_PENDING',
+        retranslation_trigger: 'admin_button',
+        added: String(res.added),
+        source_id: String(staging.source_id),
+      },
+      now,
+    });
     return { added: res.added };
+  }
+
+  async defer(stagingId: bigint, actorId: bigint | null, reason?: string | null): Promise<boolean> {
+    const now = this.clock.now();
+    const staging = await this.prisma.crawl_jobs_staging.findUnique({ where: { id: stagingId } });
+    if (!staging) throw new AppError({ code: AppErrorCode.CRAWL_STAGING_NOT_FOUND });
+    const from = staging.status;
+    assertCrawlJobTransition(from, 'DEFERRED');
+    const res = await this.prisma.$transaction(async (tx) => {
+      const row = await tx.crawl_jobs_staging.update({
+        where: { id: stagingId },
+        data: {
+          status: 'DEFERRED',
+          review_notified_at: null,
+          updated_at: now,
+        },
+      });
+      await this.audit.record(
+        {
+          action: AuditActionEnum.JOB_DEFERRED,
+          objectType: 'crawl_jobs_staging',
+          objectId: stagingId,
+          actorId: actorId ?? undefined,
+          metadata: {
+            old_status: from,
+            new_status: 'DEFERRED',
+            defer_reason: reason ?? null,
+            source_id: String(staging.source_id),
+            source_job_id: staging.source_job_id,
+          },
+          now,
+        },
+        tx,
+      );
+      return row;
+    });
+    return Boolean(res);
   }
 
   async markStale(stagingId: bigint, actorId: bigint | null): Promise<void> {

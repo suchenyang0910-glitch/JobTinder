@@ -18,6 +18,7 @@ const ALL_REVIEW_STATUSES: SourceReviewStatusValue[] = [
   'PENDING',
   'APPROVED',
   'REJECTED',
+  'DEFERRED',
   'SUSPENDED',
 ];
 
@@ -40,18 +41,19 @@ describe('SourceReviewStatus machine + SourceVerificationScore (§4 enum + §7 1
     });
   });
 
-  describe('SOURCE_REVIEW_STATUS_TRANSITIONS (§4 4 states: PENDING/APPROVED/REJECTED/SUSPENDED)', () => {
-    it('declares exactly 4 review status keys', () => {
-      expect(Object.keys(SOURCE_REVIEW_STATUS_TRANSITIONS)).toHaveLength(4);
+  describe('SOURCE_REVIEW_STATUS_TRANSITIONS (§4 5 states: PENDING/APPROVED/REJECTED/DEFERRED/SUSPENDED)', () => {
+    it('declares exactly 5 review status keys', () => {
+      expect(Object.keys(SOURCE_REVIEW_STATUS_TRANSITIONS)).toHaveLength(5);
       for (const s of ALL_REVIEW_STATUSES) {
         expect(Object.keys(SOURCE_REVIEW_STATUS_TRANSITIONS)).toContain(s);
       }
     });
 
-    it('PENDING -> APPROVED / REJECTED / SUSPENDED allowed; PENDING -> PENDING disallowed', () => {
+    it('PENDING -> APPROVED / REJECTED / SUSPENDED / DEFERRED allowed; PENDING -> PENDING disallowed', () => {
       expect(canSourceReviewTransition('PENDING', 'APPROVED')).toBe(true);
       expect(canSourceReviewTransition('PENDING', 'REJECTED')).toBe(true);
       expect(canSourceReviewTransition('PENDING', 'SUSPENDED')).toBe(true);
+      expect(canSourceReviewTransition('PENDING', 'DEFERRED')).toBe(true);
       expect(canSourceReviewTransition('PENDING', 'PENDING')).toBe(false);
     });
 

@@ -28,6 +28,7 @@ import { TelegramAIFlowHandler, STEPS as AI_STEPS } from './telegram-ai-flow.han
 import { CrawlerReviewService } from '@src/application/crawler/crawler-review.service';
 import { SourceReviewService as SourceRegistryReviewService } from '@src/application/crawler/source-import.service';
 import { CrawlerReviewNotifierService } from '@src/application/crawler/crawler-review-notifier.service';
+import { OpsStatsService } from '@src/application/ops/ops-stats.service';
 
 export type TeleCtx = Context & SessionFlavor<TelegramBotSession>;
 
@@ -47,6 +48,7 @@ export class TelegramBotService implements OnModuleInit, OnModuleDestroy {
     private readonly crawlerReview: CrawlerReviewService,
     private readonly sourceReview: SourceRegistryReviewService,
     private readonly reviewNotifier: CrawlerReviewNotifierService,
+    private readonly opsStats: OpsStatsService,
   ) {}
 
   onModuleInit() {
@@ -113,6 +115,7 @@ export class TelegramBotService implements OnModuleInit, OnModuleDestroy {
     bot.command('profile', (ctx) => this.safeRun(ctx, (c) => this.handleProfileCommand(c)));
     bot.command('company', (ctx) => this.safeRun(ctx, (c) => this.handleCompanyCommand(c)));
     bot.command('review', (ctx) => this.safeRun(ctx, (c) => this.handleReviewCommand(c)));
+    bot.command('stats', (ctx) => this.safeRun(ctx, (c) => this.handleStatsCommand(c)));
     bot.command('delete', (ctx) => ctx.reply('Feature coming in stage-2. Use /cancel for now.'));
     bot.command('matches', (ctx) => ctx.reply('Feature coming in stage-2. Use /menu to browse.'));
     bot.command('settings', (ctx) => ctx.reply('Feature coming in stage-2.'));
@@ -594,25 +597,45 @@ export class TelegramBotService implements OnModuleInit, OnModuleDestroy {
       await ctx.reply('没有审核权限。');
       return;
     }
-    const pending = await this.crawlerReview.listPending(10);
-    if (!pending.length) {
-      await ctx.reply('当前没有待审核职位。');
+    const counts = await this.reviewNotifier.reviewCounts();
+    if (!counts.pendingJobs && !counts.pendingSources) {
+      await ctx.reply('✅ 当前没有待审核来源或职位。');
       return;
     }
-    for (const row of pending) {
-      await ctx.reply(
-        `待审核职位 #${String(row.id)}\n${row.title_source ?? '(无标题)'}\n${row.source_url}`,
-        {
-          reply_markup: new InlineKeyboard()
-            .text('✅ 批准发布', `crawler_job:approve:${String(row.id)}`)
-            .text('❌ 不批准', `crawler_job:reject:${String(row.id)}`),
-        },
-      );
+    await ctx.reply(
+      `📋 审核中心\n` +
+        `待审核职位：${counts.pendingJobs}\n` +
+        `待审核来源：${counts.pendingSources}\n` +
+        `——————————\n` +
+        `将向你发送最多 10 条职位卡片和 10 条来源卡片。`,
+    );
+    const [jobIds, sourceIds] = await Promise.all([
+      this.reviewNotifier.listPendingJobs(10),
+      this.reviewNotifier.listPendingSources(10),
+    ]);
+    for (const id of jobIds) {
+      const ok = await this.reviewNotifier.notifyStaging(id, { forceRenotify: true });
+      if (!ok) await ctx.reply(`⚠️ 无法发送职位 #${String(id)} 卡片。`).catch(() => undefined);
+    }
+    for (const id of sourceIds) {
+      const ok = await this.reviewNotifier.notifySource(id, { forceRenotify: true });
+      if (!ok) await ctx.reply(`⚠️ 无法发送来源 #${String(id)} 卡片。`).catch(() => undefined);
     }
   }
 
+  private async handleStatsCommand(ctx: TeleCtx) {
+    if (!(await this.reviewNotifier.isAdminTelegramUser(ctx.from?.username))) {
+      await ctx.reply('没有管理员权限查看运营统计。');
+      return;
+    }
+    const stats = await this.opsStats.getOpsStats();
+    await ctx.reply(this.opsStats.formatTelegram(stats));
+  }
+
   async handleCrawlerJobReview(ctx: TeleCtx) {
-    const m = /^crawler_job:(approve|reject):(\d+)$/.exec(ctx.callbackQuery?.data ?? '');
+    const m = /^crawler_job:(approve|reject|defer|retranslate):(\d+)$/.exec(
+      ctx.callbackQuery?.data ?? '',
+    );
     if (!m) return;
     if (!(await this.reviewNotifier.isAdminTelegramUser(ctx.from?.username))) {
       await ctx.answerCallbackQuery({ text: '没有审核权限', show_alert: true });
@@ -621,24 +644,43 @@ export class TelegramBotService implements OnModuleInit, OnModuleDestroy {
     const rawId = m[2];
     if (!rawId) return;
     const id = BigInt(rawId);
+    const action = m[1] as 'approve' | 'reject' | 'defer' | 'retranslate';
     await ctx.answerCallbackQuery();
-    if (m[1] === 'approve') {
+    if (action === 'approve') {
       const result = await this.crawlerReview.approve(id, this.requireUserId(ctx));
       await ctx
         .editMessageReplyMarkup({ reply_markup: new InlineKeyboard().text('✅ 已批准', 'noop') })
         .catch(() => undefined);
       await ctx.reply(`✅ 职位 #${String(result.jobId)} 已发布并进入匹配。`);
-    } else {
+    } else if (action === 'reject') {
       await this.crawlerReview.reject(id, this.requireUserId(ctx), '管理员通过 Telegram 不批准');
       await ctx
         .editMessageReplyMarkup({ reply_markup: new InlineKeyboard().text('❌ 已拒绝', 'noop') })
         .catch(() => undefined);
       await ctx.reply(`已拒绝职位 #${String(id)}，不会进入公开匹配。`);
+    } else if (action === 'defer') {
+      const ok = await this.crawlerReview.defer(id, this.requireUserId(ctx));
+      if (ok) {
+        await ctx
+          .editMessageReplyMarkup({ reply_markup: new InlineKeyboard().text('💤 已暂缓', 'noop') })
+          .catch(() => undefined);
+        await ctx.reply(`💤 职位 #${String(id)} 已暂缓审核（DEFERRED），稍后重试。`);
+      }
+    } else if (action === 'retranslate') {
+      const r = await this.crawlerReview.retryTranslation(id, this.requireUserId(ctx));
+      await ctx
+        .editMessageReplyMarkup({
+          reply_markup: new InlineKeyboard().text('🔄 已重新翻译', 'noop'),
+        })
+        .catch(() => undefined);
+      await ctx.reply(`🔄 职位 #${String(id)} 重新翻译：新增 ${r.added} 条本地化记录。`);
     }
   }
 
   async handleCrawlerSourceReview(ctx: TeleCtx) {
-    const m = /^crawler_source:(approve|reject):(\d+)$/.exec(ctx.callbackQuery?.data ?? '');
+    const m = /^crawler_source:(approve|reject|defer|suspend):(\d+)$/.exec(
+      ctx.callbackQuery?.data ?? '',
+    );
     if (!m) return;
     if (!(await this.reviewNotifier.isAdminTelegramUser(ctx.from?.username))) {
       await ctx.answerCallbackQuery({ text: '没有审核权限', show_alert: true });
@@ -647,8 +689,9 @@ export class TelegramBotService implements OnModuleInit, OnModuleDestroy {
     const rawId = m[2];
     if (!rawId) return;
     const id = BigInt(rawId);
+    const action = m[1] as 'approve' | 'reject' | 'defer' | 'suspend';
     await ctx.answerCallbackQuery();
-    if (m[1] === 'approve') {
+    if (action === 'approve') {
       await this.sourceReview.approve(id, this.requireUserId(ctx), 'Telegram admin approval');
       await ctx
         .editMessageReplyMarkup({
@@ -656,7 +699,7 @@ export class TelegramBotService implements OnModuleInit, OnModuleDestroy {
         })
         .catch(() => undefined);
       await ctx.reply(`✅ 来源 #${String(id)} 已批准，后续采集会进入审核队列。`);
-    } else {
+    } else if (action === 'reject') {
       await this.sourceReview.reject(id, this.requireUserId(ctx), '管理员通过 Telegram 不批准');
       await ctx
         .editMessageReplyMarkup({
@@ -664,6 +707,24 @@ export class TelegramBotService implements OnModuleInit, OnModuleDestroy {
         })
         .catch(() => undefined);
       await ctx.reply(`已拒绝来源 #${String(id)}。`);
+    } else if (action === 'defer') {
+      const ok = await this.sourceReview.defer(id, this.requireUserId(ctx));
+      if (ok) {
+        await ctx
+          .editMessageReplyMarkup({
+            reply_markup: new InlineKeyboard().text('💤 已暂缓审核', 'noop'),
+          })
+          .catch(() => undefined);
+        await ctx.reply(`💤 来源 #${String(id)} 已暂缓审核（DEFERRED）。`);
+      }
+    } else if (action === 'suspend') {
+      await this.sourceReview.suspend(id, this.requireUserId(ctx), 'Telegram admin manual suspend');
+      await ctx
+        .editMessageReplyMarkup({
+          reply_markup: new InlineKeyboard().text('🚫 已标记失效', 'noop'),
+        })
+        .catch(() => undefined);
+      await ctx.reply(`🚫 来源 #${String(id)} 已标记失效（SUSPENDED），停止抓取。`);
     }
   }
 

@@ -2,16 +2,30 @@ import { AppError } from '@src/shared/errors/app-error';
 import { AppErrorCode } from '@src/shared/errors/app-error-code';
 
 export const CRAWL_JOB_STATUS_TRANSITIONS: Record<string, readonly string[]> = {
-  DISCOVERED: ['FETCHED', 'REJECTED', 'STALE'],
-  FETCHED: ['PARSED', 'REVIEW_REQUIRED', 'REJECTED', 'STALE'],
-  PARSED: ['TRANSLATED', 'REVIEW_REQUIRED', 'REJECTED', 'STALE'],
-  TRANSLATED: ['QA_PENDING', 'REVIEW_REQUIRED', 'REJECTED', 'STALE'],
-  QA_PENDING: ['APPROVED', 'REVIEW_REQUIRED', 'REJECTED', 'STALE'],
-  REVIEW_REQUIRED: ['APPROVED', 'REJECTED', 'TRANSLATED', 'STALE'],
-  APPROVED: ['PUBLISHED', 'STALE'],
-  REJECTED: [],
-  PUBLISHED: ['STALE'],
-  STALE: [],
+  DISCOVERED: ['FETCHED', 'REJECTED', 'STALE', 'DEFERRED'],
+  FETCHED: ['PARSED', 'REVIEW_REQUIRED', 'REJECTED', 'STALE', 'DEFERRED'],
+  PARSED: ['TRANSLATED', 'REVIEW_REQUIRED', 'REJECTED', 'STALE', 'DEFERRED'],
+  TRANSLATED: ['QA_PENDING', 'REVIEW_REQUIRED', 'REJECTED', 'STALE', 'DEFERRED'],
+  QA_PENDING: ['APPROVED', 'REVIEW_REQUIRED', 'REJECTED', 'STALE', 'DEFERRED', 'TRANSLATED'],
+  REVIEW_REQUIRED: ['APPROVED', 'REJECTED', 'TRANSLATED', 'STALE', 'DEFERRED'],
+  DEFERRED: [
+    'QA_PENDING',
+    'REVIEW_REQUIRED',
+    'APPROVED',
+    'REJECTED',
+    'TRANSLATED',
+    'STALE',
+    'PAUSED',
+    'EXPIRED',
+    'CLOSED',
+  ],
+  APPROVED: ['PUBLISHED', 'STALE', 'PAUSED', 'EXPIRED', 'CLOSED', 'DEFERRED'],
+  REJECTED: ['DEFERRED', 'QA_PENDING', 'REVIEW_REQUIRED'],
+  PUBLISHED: ['STALE', 'PAUSED', 'EXPIRED', 'CLOSED', 'DEFERRED'],
+  PAUSED: ['PUBLISHED', 'STALE', 'EXPIRED', 'CLOSED', 'DEFERRED'],
+  STALE: ['CLOSED', 'EXPIRED', 'PUBLISHED', 'DEFERRED'],
+  EXPIRED: ['CLOSED', 'PUBLISHED', 'DEFERRED'],
+  CLOSED: [],
 } as const;
 
 export type CrawlJobStatusValue =
@@ -21,10 +35,14 @@ export type CrawlJobStatusValue =
   | 'TRANSLATED'
   | 'QA_PENDING'
   | 'REVIEW_REQUIRED'
+  | 'DEFERRED'
   | 'APPROVED'
   | 'REJECTED'
   | 'PUBLISHED'
-  | 'STALE';
+  | 'PAUSED'
+  | 'STALE'
+  | 'EXPIRED'
+  | 'CLOSED';
 
 export function canTransitionCrawlJob(from: CrawlJobStatusValue, to: CrawlJobStatusValue): boolean {
   const allowed = CRAWL_JOB_STATUS_TRANSITIONS[from] ?? [];
@@ -47,4 +65,8 @@ export function isPublishable(status: CrawlJobStatusValue): boolean {
 
 export function isVisibleToMatches(status: CrawlJobStatusValue): boolean {
   return status === 'PUBLISHED';
+}
+
+export function isLifecycleTerminal(status: CrawlJobStatusValue): boolean {
+  return status === 'CLOSED' || status === 'EXPIRED' || status === 'STALE';
 }
