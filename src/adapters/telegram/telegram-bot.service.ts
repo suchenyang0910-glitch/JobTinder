@@ -198,6 +198,9 @@ export class TelegramBotService implements OnModuleInit, OnModuleDestroy {
     bot.callbackQuery(/^match:interest:(\d+)$/, (ctx) =>
       this.safeRun(ctx, (c) => this.handleJobInterest(c)),
     );
+    bot.callbackQuery(/^match:company-interest:(\d+):(\d+)$/, (ctx) =>
+      this.safeRun(ctx, (c) => this.handleCompanyInterest(c)),
+    );
     bot.callbackQuery(/^match:status:(LOOKING_JOB|INTERVIEWING|FOUND_JOB|NOT_LOOKING)$/, (ctx) =>
       this.safeRun(ctx, (c) => this.handleCandidateStatus(c)),
     );
@@ -657,6 +660,8 @@ export class TelegramBotService implements OnModuleInit, OnModuleDestroy {
       select: { id: true, job_search_status: true },
     });
     if (!profile) {
+      const handled = await this.handleCompanyMatches(ctx, userId);
+      if (handled) return;
       await ctx.reply('请先完成并确认求职资料，再开始匹配。使用 /profile。');
       return;
     }
@@ -717,6 +722,36 @@ export class TelegramBotService implements OnModuleInit, OnModuleDestroy {
     );
   }
 
+  private async handleCompanyMatches(ctx: TeleCtx, userId: bigint): Promise<boolean> {
+    const membership = await this.prisma.companies_members.findFirst({
+      where: { user_id: userId },
+      select: { company_id: true },
+    });
+    if (!membership) return false;
+    const jobs = await this.prisma.jobs.findMany({
+      where: { company_id: membership.company_id, status: { in: ['ACTIVE_CLAIMED', 'ACTIVE_EXTERNAL'] } },
+      select: { id: true, title: true },
+      take: 50,
+    });
+    const interests = await this.prisma.interests.findMany({
+      where: { job_id: { in: jobs.map((j) => j.id) }, actor_side: 'CANDIDATE', status: 'PENDING' },
+      select: { id: true, candidate_id: true, job_id: true },
+      take: 20,
+    });
+    if (!interests.length) {
+      await ctx.reply('目前没有待回应的候选人兴趣。候选人表达兴趣后会显示在这里。');
+      return true;
+    }
+    const jobById = new Map(jobs.map((j) => [j.id.toString(), j.title]));
+    await ctx.reply('🏢 待回应的候选人兴趣：');
+    for (const i of interests) {
+      await ctx.reply(`职位：${jobById.get(i.job_id.toString()) ?? `#${i.job_id.toString()}`}\n候选人档案：#${i.candidate_id.toString()}`, {
+        reply_markup: new InlineKeyboard().text('❤️ 感兴趣并开放联系', `match:company-interest:${i.job_id.toString()}:${i.candidate_id.toString()}`),
+      });
+    }
+    return true;
+  }
+
   private async handleJobInterest(ctx: TeleCtx) {
     const m = /^match:interest:(\d+)$/.exec(ctx.callbackQuery?.data ?? '');
     if (!m) return;
@@ -745,6 +780,18 @@ export class TelegramBotService implements OnModuleInit, OnModuleDestroy {
     const { userId } = await this.ensureIdentity(ctx);
     await this.resultFeedback.updateCandidateJobSearchStatus(userId, status, { source: 'MANUAL' });
     await ctx.reply(`✅ 求职状态已更新为：${status}`);
+  }
+
+  private async handleCompanyInterest(ctx: TeleCtx) {
+    const m = /^match:company-interest:(\d+):(\d+)$/.exec(ctx.callbackQuery?.data ?? '');
+    if (!m) return;
+    await ctx.answerCallbackQuery({ text: '已记录企业兴趣' }).catch(() => undefined);
+    const { userId } = await this.ensureIdentity(ctx);
+    const result = await this.matchWorkflow.companyExpressInterest(userId, BigInt(m[1]!), BigInt(m[2]!));
+    await ctx.editMessageReplyMarkup({
+      reply_markup: new InlineKeyboard().text(result.matchCreated ? '✅ 已匹配' : '✅ 已回应', 'noop'),
+    }).catch(() => undefined);
+    await ctx.reply(result.matchCreated ? '🎉 双方都表达了兴趣，联系已开放。' : '✅ 已记录企业兴趣，等待候选人回应。');
   }
 
   private async handleStatsCommand(ctx: TeleCtx) {
