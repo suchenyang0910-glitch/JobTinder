@@ -29,6 +29,10 @@ import { CrawlerReviewService } from '@src/application/crawler/crawler-review.se
 import { SourceReviewService as SourceRegistryReviewService } from '@src/application/crawler/source-import.service';
 import { CrawlerReviewNotifierService } from '@src/application/crawler/crawler-review-notifier.service';
 import { OpsStatsService } from '@src/application/ops/ops-stats.service';
+import { HardMatchService } from '@src/application/matching/hard-match.service';
+import { MatchWorkflowService } from '@src/application/matching/match-workflow.service';
+import { ResultFeedbackService } from '@src/application/feedback/result-feedback.service';
+import { PrismaService } from '@src/infrastructure/db/prisma/prisma.service';
 
 export type TeleCtx = Context & SessionFlavor<TelegramBotSession>;
 
@@ -49,6 +53,10 @@ export class TelegramBotService implements OnModuleInit, OnModuleDestroy {
     private readonly sourceReview: SourceRegistryReviewService,
     private readonly reviewNotifier: CrawlerReviewNotifierService,
     private readonly opsStats: OpsStatsService,
+    private readonly hardMatch: HardMatchService,
+    private readonly matchWorkflow: MatchWorkflowService,
+    private readonly resultFeedback: ResultFeedbackService,
+    private readonly prisma: PrismaService,
   ) {}
 
   onModuleInit() {
@@ -117,7 +125,7 @@ export class TelegramBotService implements OnModuleInit, OnModuleDestroy {
     bot.command('review', (ctx) => this.safeRun(ctx, (c) => this.handleReviewCommand(c)));
     bot.command('stats', (ctx) => this.safeRun(ctx, (c) => this.handleStatsCommand(c)));
     bot.command('delete', (ctx) => ctx.reply('Feature coming in stage-2. Use /cancel for now.'));
-    bot.command('matches', (ctx) => ctx.reply('Feature coming in stage-2. Use /menu to browse.'));
+    bot.command('matches', (ctx) => this.safeRun(ctx, (c) => this.handleMatches(c)));
     bot.command('settings', (ctx) => ctx.reply('Feature coming in stage-2.'));
 
     // Callback queries
@@ -183,6 +191,15 @@ export class TelegramBotService implements OnModuleInit, OnModuleDestroy {
     );
     bot.callbackQuery(/^crawler_source:(approve|reject):(\d+)$/, (ctx) =>
       this.safeRun(ctx, (c) => this.handleCrawlerSourceReview(c)),
+    );
+    bot.callbackQuery(/^menu:(find|matches)$/, (ctx) =>
+      this.safeRun(ctx, (c) => this.handleMenuAction(c)),
+    );
+    bot.callbackQuery(/^match:interest:(\d+)$/, (ctx) =>
+      this.safeRun(ctx, (c) => this.handleJobInterest(c)),
+    );
+    bot.callbackQuery(/^match:status:(LOOKING_JOB|INTERVIEWING|FOUND_JOB|NOT_LOOKING)$/, (ctx) =>
+      this.safeRun(ctx, (c) => this.handleCandidateStatus(c)),
     );
 
     // Plain text
@@ -621,6 +638,113 @@ export class TelegramBotService implements OnModuleInit, OnModuleDestroy {
       const ok = await this.reviewNotifier.notifySource(id, { forceRenotify: true });
       if (!ok) await ctx.reply(`⚠️ 无法发送来源 #${String(id)} 卡片。`).catch(() => undefined);
     }
+  }
+
+  private async handleMenuAction(ctx: TeleCtx) {
+    const action = ctx.callbackQuery?.data?.split(':')[1];
+    await ctx.answerCallbackQuery().catch(() => undefined);
+    if (action === 'find' || action === 'matches') await this.handleMatches(ctx);
+  }
+
+  /** Candidate-facing matching loop: show only active, hard-compatible jobs and
+   * let the candidate express interest without exposing a contact until both
+   * sides have opted in. */
+  private async handleMatches(ctx: TeleCtx) {
+    const { userId } = await this.ensureIdentity(ctx);
+    const profile = await this.prisma.candidate_profiles.findFirst({
+      where: { user_id: userId, deleted_at: null, status: 'CONFIRMED' },
+      orderBy: { version: 'desc' },
+      select: { id: true, job_search_status: true },
+    });
+    if (!profile) {
+      await ctx.reply('请先完成并确认求职资料，再开始匹配。使用 /profile。');
+      return;
+    }
+    const suggestions = await this.hardMatch.suggest({ candidateId: profile.id, limit: 5 });
+    if (!suggestions.jobs.length) {
+      await ctx.reply('暂时没有同时满足技能、岗位、行业、地点或语言条件的有效职位。我们会继续更新。');
+    } else {
+      await ctx.reply('🔎 为你找到以下合适职位。双方表达兴趣后才会开放联系：');
+      for (const job of suggestions.jobs) {
+        const row = await this.prisma.jobs.findUnique({
+          where: { id: job.jobId },
+          select: { salary_text: true, source_url: true, languages_required: true, locations: true },
+        });
+        const lines = [
+          `💼 ${job.title}`,
+          job.industry ? `行业：${job.industry}` : '',
+          `匹配度：${job.matchScore}`,
+          row?.locations?.length ? `地点：${row.locations.join(', ')}` : '',
+          row?.languages_required?.length ? `语言：${row.languages_required.join(', ')}` : '',
+          `薪资：${row?.salary_text || '面议'}`,
+          row?.source_url ? `来源：${row.source_url}` : '',
+        ].filter(Boolean);
+        await ctx.reply(lines.join('\n'), {
+          reply_markup: new InlineKeyboard().text('❤️ 我感兴趣', `match:interest:${String(job.jobId)}`),
+        });
+      }
+    }
+    const contacts = await this.prisma.matches.findMany({
+      where: { candidate_id: profile.id, status: 'CONTACT_AVAILABLE' },
+      orderBy: { created_at: 'desc' },
+      take: 10,
+    });
+    if (contacts.length) {
+      const contactJobs = await this.prisma.jobs.findMany({
+        where: { id: { in: contacts.map((m) => m.job_id) } },
+        select: { id: true, title: true, source_url: true },
+      });
+      const jobById = new Map(contactJobs.map((j) => [j.id.toString(), j]));
+      await ctx.reply(
+        `✅ 已开放联系：\n${contacts
+          .map((m) => {
+            const job = jobById.get(m.job_id.toString());
+            return `• ${job?.title ?? `职位 #${m.job_id.toString()}`}${job?.source_url ? `\n  ${job.source_url}` : ''}`;
+          })
+          .join('\n')}`,
+      );
+    }
+    await ctx.reply(
+      `当前求职状态：${profile.job_search_status ?? 'LOOKING_JOB'}`,
+      {
+        reply_markup: new InlineKeyboard()
+          .text('继续找工作', 'match:status:LOOKING_JOB')
+          .text('面试中', 'match:status:INTERVIEWING')
+          .row()
+          .text('已找到工作', 'match:status:FOUND_JOB')
+          .text('暂不找工作', 'match:status:NOT_LOOKING'),
+      },
+    );
+  }
+
+  private async handleJobInterest(ctx: TeleCtx) {
+    const m = /^match:interest:(\d+)$/.exec(ctx.callbackQuery?.data ?? '');
+    if (!m) return;
+    await ctx.answerCallbackQuery({ text: '已记录你的兴趣' }).catch(() => undefined);
+    const { userId } = await this.ensureIdentity(ctx);
+    const result = await this.matchWorkflow.candidateExpressInterest(userId, BigInt(m[1]!));
+    await ctx.editMessageReplyMarkup({
+      reply_markup: new InlineKeyboard().text(result.matchCreated ? '✅ 已匹配' : '✅ 已表达兴趣', 'noop'),
+    }).catch(() => undefined);
+    await ctx.reply(
+      result.matchCreated
+        ? '🎉 双方都表达了兴趣，联系已开放。请尽快查看来源并联系企业。'
+        : '✅ 已记录。企业表达兴趣后，我们会开放联系并通知你。',
+    );
+  }
+
+  private async handleCandidateStatus(ctx: TeleCtx) {
+    const status = ctx.callbackQuery?.data?.split(':')[2] as
+      | 'LOOKING_JOB'
+      | 'INTERVIEWING'
+      | 'FOUND_JOB'
+      | 'NOT_LOOKING'
+      | undefined;
+    if (!status) return;
+    await ctx.answerCallbackQuery().catch(() => undefined);
+    const { userId } = await this.ensureIdentity(ctx);
+    await this.resultFeedback.updateCandidateJobSearchStatus(userId, status, { source: 'MANUAL' });
+    await ctx.reply(`✅ 求职状态已更新为：${status}`);
   }
 
   private async handleStatsCommand(ctx: TeleCtx) {
