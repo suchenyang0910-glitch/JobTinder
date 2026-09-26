@@ -43,7 +43,7 @@ export class CrawlerReviewService {
     actorId: bigint | null,
   ): Promise<{ jobId: bigint; stagingId: bigint }> {
     const now = this.clock.now();
-    const staging = await this.prisma.crawl_jobs_staging.findUnique({
+    let staging = await this.prisma.crawl_jobs_staging.findUnique({
       where: { id: stagingId },
       include: { source: true, job_translations: true },
     });
@@ -56,6 +56,19 @@ export class CrawlerReviewService {
     const from = staging.status;
     if (from !== 'APPROVED') {
       assertCrawlJobTransition(from, 'APPROVED');
+    }
+
+    // Remote feeds enter the staging queue directly and may not have gone
+    // through the regular crawler translation batch yet. A first approval
+    // click must complete that prerequisite instead of surfacing a generic
+    // "unexpected error" to the admin.
+    if (staging.job_translations.length === 0 && staging.work_mode === 'REMOTE') {
+      await this.orchestrator.translateStaging(stagingId);
+      const translated = await this.prisma.crawl_jobs_staging.findUnique({
+        where: { id: stagingId },
+        include: { source: true, job_translations: true },
+      });
+      if (translated) staging = translated;
     }
 
     const originalLang = (staging.detected_language as 'km' | 'en' | 'zh_CN' | 'unknown') ?? 'en';
