@@ -10,6 +10,8 @@ import { fetchRemotiveApiJobs } from '@src/infrastructure/remote/remotive-api.ad
 import {
   fetchRemotiveRssJobs,
   fetchRemoteOkRssJobs,
+  fetchWeWorkRemotelyRssJobs,
+  fetchJobicyRssJobs,
 } from '@src/infrastructure/remote/rss-feeds.adapter';
 import {
   dedupeNormalizedRemoteJobs,
@@ -32,7 +34,12 @@ import { APP_ENV } from '@src/shared/env/app-env';
 import { Inject } from '@nestjs/common';
 import { createHash } from 'node:crypto';
 
-export type RemoteSourceName = 'remotive_api' | 'remotive_rss' | 'remote_ok_rss';
+export type RemoteSourceName =
+  | 'remotive_api'
+  | 'remotive_rss'
+  | 'remote_ok_rss'
+  | 'we_work_remotely_rss'
+  | 'jobicy_rss';
 
 const SOURCE_META: Record<
   RemoteSourceName,
@@ -67,6 +74,22 @@ const SOURCE_META: Record<
     sourceType: 'THIRD_PARTY_JOB_BOARD',
     parserType: 'RSS',
     platform: 'REMOTE_OK',
+    defaultEnabled: true,
+  },
+  we_work_remotely_rss: {
+    baseUrl: 'https://weworkremotely.com',
+    jobsUrl: 'https://weworkremotely.com/remote-jobs.rss',
+    sourceType: 'THIRD_PARTY_JOB_BOARD',
+    parserType: 'RSS',
+    platform: 'WE_WORK_REMOTELY',
+    defaultEnabled: true,
+  },
+  jobicy_rss: {
+    baseUrl: 'https://jobicy.com',
+    jobsUrl: 'https://jobicy.com/jobs/feed',
+    sourceType: 'THIRD_PARTY_JOB_BOARD',
+    parserType: 'RSS',
+    platform: 'JOBICY',
     defaultEnabled: true,
   },
 };
@@ -109,7 +132,8 @@ export class RemoteSourceSyncOrchestratorService {
     dryRun?: boolean;
   }): Promise<RemoteSyncReport> {
     const sources =
-      opts?.sources ?? (['remotive_api', 'remotive_rss', 'remote_ok_rss'] as RemoteSourceName[]);
+      opts?.sources ??
+      (['remotive_api', 'remotive_rss', 'remote_ok_rss', 'we_work_remotely_rss', 'jobicy_rss'] as RemoteSourceName[]);
     const startedAt = this.clock.now();
     const allRaw: RemoteRawJob[] = [];
     const fetchResults: RemoteSourceFetchResult[] = [];
@@ -207,6 +231,29 @@ export class RemoteSourceSyncOrchestratorService {
           feedUrl: process.env.REMOTIVE_RSS_URL || undefined,
           timeoutMs: Number(APP_ENV.CRAWLER_REQUEST_TIMEOUT_MS) || undefined,
         });
+        return {
+          result: {
+            source: name,
+            ok: r.ok,
+            errorCode: r.errorCode,
+            errorMessage: r.errorMessage,
+            httpStatus: r.httpStatus,
+            rawFetched: r.jobs.length,
+          },
+          jobs: r.jobs,
+        };
+      }
+      if (name === 'we_work_remotely_rss' || name === 'jobicy_rss') {
+        const r =
+          name === 'we_work_remotely_rss'
+            ? await fetchWeWorkRemotelyRssJobs({
+                feedUrl: process.env.WWR_RSS_URL || undefined,
+                timeoutMs: Number(APP_ENV.CRAWLER_REQUEST_TIMEOUT_MS) || undefined,
+              })
+            : await fetchJobicyRssJobs({
+                feedUrl: process.env.JOBICY_RSS_URL || undefined,
+                timeoutMs: Number(APP_ENV.CRAWLER_REQUEST_TIMEOUT_MS) || undefined,
+              });
         return {
           result: {
             source: name,
@@ -446,6 +493,22 @@ function SOURCE_META_BY_PLATFORM(job: NormalizedRemoteJob): {
         parser === 'API'
           ? 'https://remotive.com/api/remote-jobs'
           : 'https://remotive.com/remote-jobs/feed',
+      sourceType: 'THIRD_PARTY_JOB_BOARD',
+      parserType: parser,
+    };
+  }
+  if (p === 'WE_WORK_REMOTELY') {
+    return {
+      baseUrl: 'https://weworkremotely.com',
+      jobsUrl: 'https://weworkremotely.com/remote-jobs.rss',
+      sourceType: 'THIRD_PARTY_JOB_BOARD',
+      parserType: parser,
+    };
+  }
+  if (p === 'JOBICY') {
+    return {
+      baseUrl: 'https://jobicy.com',
+      jobsUrl: 'https://jobicy.com/jobs/feed',
       sourceType: 'THIRD_PARTY_JOB_BOARD',
       parserType: parser,
     };

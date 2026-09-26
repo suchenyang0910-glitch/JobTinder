@@ -800,13 +800,19 @@ async function main(): Promise<void> {
       case 'remote-source-sync': {
         const dryRun = argv.includes('--dry-run');
         const sourcesIdx = argv.indexOf('--sources');
-        const sourcesAll: RemoteSourceName[] = ['remotive_api', 'remotive_rss', 'remote_ok_rss'];
+        const sourcesAll: RemoteSourceName[] = [
+          'remotive_api',
+          'remotive_rss',
+          'remote_ok_rss',
+          'we_work_remotely_rss',
+          'jobicy_rss',
+        ];
         let sources: RemoteSourceName[];
         if (sourcesIdx >= 0) {
           const raw = (argv[sourcesIdx + 1] ?? '').split(/[,，|]/).map((s) => s.trim()).filter(Boolean) as RemoteSourceName[];
           sources = raw.filter((s) => (sourcesAll as string[]).includes(s));
           if (sources.length === 0) {
-            console.error('Usage: crawler:remote-source-sync [--dry-run] [--sources remotive_api|remotive_rss|remote_ok_rss]');
+            console.error('Usage: crawler:remote-source-sync [--dry-run] [--sources remotive_api|remotive_rss|remote_ok_rss|we_work_remotely_rss|jobicy_rss]');
             process.exit(2);
           }
         } else {

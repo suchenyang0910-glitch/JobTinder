@@ -8,6 +8,8 @@ import { safeHttpFetch } from '@src/infrastructure/remote/remote-http-client';
 export const DEFAULT_REMOTIVE_RSS_URL = 'https://remotive.com/remote-jobs/feed';
 export const DEFAULT_REMOTE_OK_RSS_URL = 'https://remoteok.com/remote-jobs.rss';
 export const DEFAULT_REMOTE_OK_API_URL = 'https://remoteok.com/api';
+export const DEFAULT_WWR_RSS_URL = 'https://weworkremotely.com/remote-jobs.rss';
+export const DEFAULT_JOBICY_RSS_URL = 'https://jobicy.com/jobs/feed';
 
 function findText(el: Element | null | undefined, names: string[]): string | null {
   if (!el) return null;
@@ -241,6 +243,24 @@ export function fetchRemotiveRssJobs(opts?: { feedUrl?: string; timeoutMs?: numb
     feedUrl: opts?.feedUrl ?? DEFAULT_REMOTIVE_RSS_URL,
     sourcePlatform: REMOTE_SOURCE_PLATFORM.REMOTIVE_RSS,
     sourceJobIdPrefix: 'remotive-rss',
+    timeoutMs: opts?.timeoutMs,
+  });
+}
+
+export function fetchWeWorkRemotelyRssJobs(opts?: { feedUrl?: string; timeoutMs?: number }) {
+  return fetchRssJobs({
+    feedUrl: opts?.feedUrl ?? DEFAULT_WWR_RSS_URL,
+    sourcePlatform: REMOTE_SOURCE_PLATFORM.WE_WORK_REMOTELY_RSS,
+    sourceJobIdPrefix: 'wwr-rss',
+    timeoutMs: opts?.timeoutMs,
+  });
+}
+
+export function fetchJobicyRssJobs(opts?: { feedUrl?: string; timeoutMs?: number }) {
+  return fetchRssJobs({
+    feedUrl: opts?.feedUrl ?? DEFAULT_JOBICY_RSS_URL,
+    sourcePlatform: REMOTE_SOURCE_PLATFORM.JOBICY_RSS,
+    sourceJobIdPrefix: 'jobicy-rss',
     timeoutMs: opts?.timeoutMs,
   });
 }

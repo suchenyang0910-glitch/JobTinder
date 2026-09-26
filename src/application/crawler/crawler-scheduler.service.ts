@@ -337,7 +337,13 @@ export class CrawlerSchedulerService {
     }
     this.remoteSourceSyncLock = true;
     try {
-      const sources: RemoteSourceName[] = ['remotive_api', 'remotive_rss', 'remote_ok_rss'];
+      const sources: RemoteSourceName[] = [
+        'remotive_api',
+        'remotive_rss',
+        'remote_ok_rss',
+        'we_work_remotely_rss',
+        'jobicy_rss',
+      ];
       const report = await this.remoteSync.syncAll({ sources });
       this.logger.log(
         `Remote source sync: fetched=${report.totalRawFetched} dedupeAfter=${report.dedupe.totalAfterDedupe} created=${report.stagingCreated} updated=${report.stagingUpdated} confirmed=${report.eligibility.confirmed} needsConfirm=${report.eligibility.needsConfirm} notEligible=${report.eligibility.notEligible}`,

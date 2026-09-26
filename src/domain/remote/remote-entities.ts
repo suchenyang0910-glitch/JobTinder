@@ -11,6 +11,8 @@ export const REMOTE_SOURCE_PLATFORM = {
   REMOTIVE_API: 'REMOTIVE',
   REMOTIVE_RSS: 'REMOTIVE',
   REMOTE_OK_RSS: 'REMOTE_OK',
+  WE_WORK_REMOTELY_RSS: 'WE_WORK_REMOTELY',
+  JOBICY_RSS: 'JOBICY',
 } as const;
 
 export type RemoteSourcePlatform =
