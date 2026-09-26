@@ -14,6 +14,8 @@ This plan is the acceptance checklist for the explicitly unlocked remote-job sou
 - [x] Remotive API adapter.
 - [x] Remotive RSS adapter.
 - [x] Remote OK RSS adapter.
+- [x] We Work Remotely public RSS adapter (with source attribution).
+- [x] Jobicy public RSS adapter (with source attribution and rate-safe polling).
 - [x] Node-safe RSS parsing without browser-only APIs.
 - [x] Remote OK API fallback when its RSS endpoint returns HTTP 410.
 - [x] Keep source URLs and provider attribution in every stored record.
