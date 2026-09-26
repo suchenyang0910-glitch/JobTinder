@@ -6,6 +6,7 @@ import { SourceDiscoveryService } from '../source-discovery.service';
 import { type Clock, CLOCK_TOKEN } from '@src/shared/clock/clock';
 import { type SourceValidationService, SourceReviewService } from '../source-import.service';
 import { CrawlerReviewNotifierService } from '../crawler-review-notifier.service';
+import type { RemoteJobEligibilityService } from '@src/application/remote/remote-job-eligibility.service';
 import { CrawlerReviewService } from '../crawler-review.service';
 import { type CrawlerOrchestrator } from '../crawler-orchestrator.service';
 import { AuditActionEnum } from '@src/shared/audit/audit-action-enum';
@@ -451,7 +452,7 @@ describe('自动来源发现 + 未核验岗位审批（6 UT）', () => {
     const { prisma } = makePrisma();
     APP_ENV.CRAWLER_REVIEW_ADMIN_USERNAME = 'Faxonlei';
     process.env.CRAWLER_REVIEW_ADMIN_USERNAME = 'Faxonlei';
-    const notifier = new CrawlerReviewNotifierService(prisma);
+    const notifier = new CrawlerReviewNotifierService(prisma, {} as RemoteJobEligibilityService);
     expect(await notifier.isAdminTelegramUser('Faxonlei')).toBe(true);
     expect(await notifier.isAdminTelegramUser('@Faxonlei')).toBe(true);
     expect(await notifier.isAdminTelegramUser('FAXONLEI')).toBe(true);
@@ -495,7 +496,7 @@ describe('自动来源发现 + 未核验岗位审批（6 UT）', () => {
     });
     expect(await prisma.jobs.count()).toBe(0);
     APP_ENV.TELEGRAM_BOT_TOKEN = '';
-    const notifier = new CrawlerReviewNotifierService(prisma);
+    const notifier = new CrawlerReviewNotifierService(prisma, {} as RemoteJobEligibilityService);
     await notifier.notifyPendingJobs();
     expect(await prisma.jobs.count()).toBe(0);
   });

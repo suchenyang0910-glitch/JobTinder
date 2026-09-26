@@ -29,6 +29,11 @@ import {
 import { PrismaService } from '@src/infrastructure/db/prisma/prisma.service';
 import type { source_registry } from '@prisma/client';
 import { SOURCE_TYPE_LABELS } from '@src/domain/crawler/source-review-status-machine';
+import { RemoteSourceSyncOrchestratorService, type RemoteSourceName } from '@src/application/remote/remote-source-sync-orchestrator.service';
+import { RemoteJobNormalizeService } from '@src/application/remote/remote-job-normalize.service';
+import { RemoteJobEligibilityService } from '@src/application/remote/remote-job-eligibility.service';
+import { RemoteDailyDigestService } from '@src/application/remote/remote-daily-digest.service';
+import type { NormalizedRemoteJob } from '@src/domain/remote/remote-entities';
 
 const SOURCE_TYPE_LABELS_CLI: Record<string, string> =
   process.platform === 'win32'
@@ -790,6 +795,145 @@ async function main(): Promise<void> {
         if (dryRun) {
           console.log('\n⚠️  当前是 DRY-RUN。请再次运行：pnpm crawler:pilot-smoke --apply  写入真实数据');
         }
+        break;
+      }
+      case 'remote-source-sync': {
+        const dryRun = argv.includes('--dry-run');
+        const sourcesIdx = argv.indexOf('--sources');
+        const sourcesAll: RemoteSourceName[] = ['remotive_api', 'remotive_rss', 'remote_ok_rss'];
+        let sources: RemoteSourceName[];
+        if (sourcesIdx >= 0) {
+          const raw = (argv[sourcesIdx + 1] ?? '').split(/[,，|]/).map((s) => s.trim()).filter(Boolean) as RemoteSourceName[];
+          sources = raw.filter((s) => (sourcesAll as string[]).includes(s));
+          if (sources.length === 0) {
+            console.error('Usage: crawler:remote-source-sync [--dry-run] [--sources remotive_api|remotive_rss|remote_ok_rss]');
+            process.exit(2);
+          }
+        } else {
+          sources = sourcesAll;
+        }
+        console.log(`= remote-source-sync (dry_run=${dryRun}, sources=${sources.join(',')}) =`);
+        const syncSvc = app.get(RemoteSourceSyncOrchestratorService);
+        const r = await syncSvc.syncAll({ sources, dryRun });
+        console.log(`  started : ${r.startedAt.toISOString()}`);
+        console.log(`  finished: ${r.finishedAt.toISOString()}`);
+        console.log(`  raw_fetched: ${r.totalRawFetched}`);
+        for (const s of r.sources) {
+          console.log(`    [${s.source}] ok=${s.ok} fetched=${s.rawFetched} http=${s.httpStatus}${s.errorCode ? ` err=${s.errorCode}:${s.errorMessage ?? ''}` : ''}`);
+        }
+        console.log(`  dedupe   : kept=${r.dedupe.totalAfterDedupe} (byUrl=${r.dedupe.duplicatesByUrl} byPlatform=${r.dedupe.duplicatesByPlatformJob} byCompany=${r.dedupe.duplicatesByCompanyTitle})`);
+        if (!dryRun) {
+          console.log(`  staging  : created=${r.stagingCreated} updated=${r.stagingUpdated}`);
+          console.log(`  eligible : CONFIRMED=${r.eligibility.confirmed} NEEDS_CONFIRM=${r.eligibility.needsConfirm} NOT_ELIGIBLE=${r.eligibility.notEligible}`);
+          const qaCount = Object.keys(r.qaFlagsPerJob).length;
+          console.log(`  qa_flags : jobs_with_flags=${qaCount}`);
+        } else {
+          console.log(`  staging  : (dry-run, no DB writes)`);
+        }
+        break;
+      }
+      case 'remote-normalize': {
+        const dryRun = argv.includes('--dry-run');
+        console.log(`= remote-normalize (dry_run=${dryRun}) =`);
+        const prisma = app.get(PrismaService);
+        const normSvc = app.get(RemoteJobNormalizeService);
+        const pending = await prisma.crawl_jobs_staging.findMany({
+          where: {
+            work_mode: 'REMOTE',
+            OR: [
+              { eligibility_status: 'NEEDS_CONFIRMATION' },
+              { remote_scope: null },
+            ],
+          },
+          take: 500,
+          select: { id: true, parsed_json: true },
+        });
+        let processed = 0;
+        for (const row of pending) {
+          try {
+            const parsed = row.parsed_json as unknown as NormalizedRemoteJob | null;
+            if (parsed?.raw) {
+              const reNorm = normSvc.normalize(parsed.raw);
+              if (!dryRun) {
+                await prisma.crawl_jobs_staging.update({
+                  where: { id: row.id },
+                  data: {
+                    remote_scope: reNorm.remoteScope ?? undefined,
+                    eligible_countries: reNorm.eligibleCountries,
+                    work_authorization: reNorm.workAuthorization,
+                    employment_type: reNorm.employmentType ?? undefined,
+                    updated_at: new Date(),
+                  },
+                });
+              }
+              processed++;
+            }
+          } catch {
+            /* skip */
+          }
+        }
+        console.log(`  pool      : ${pending.length}`);
+        console.log(`  processed : ${processed}${dryRun ? ' (dry-run)' : ''}`);
+        break;
+      }
+      case 'remote-eligibility': {
+        const dryRun = argv.includes('--dry-run');
+        console.log(`= remote-eligibility (dry_run=${dryRun}) =`);
+        const prisma = app.get(PrismaService);
+        const eligSvc = app.get(RemoteJobEligibilityService);
+        const pending = await prisma.crawl_jobs_staging.findMany({
+          where: { work_mode: 'REMOTE' },
+          take: 500,
+          select: { id: true, parsed_json: true },
+        });
+        let confirmed = 0;
+        let needsConfirm = 0;
+        let notEligible = 0;
+        for (const row of pending) {
+          try {
+            const parsed = row.parsed_json as unknown as NormalizedRemoteJob | null;
+            if (!parsed?.raw) continue;
+            const result = eligSvc.evaluateSyncNoUrl(parsed, {
+              userTimezone: 'Asia/Phnom_Penh',
+              overlapMinHours: 2,
+            });
+            if (!dryRun) {
+              const qaFlags: string[] = [];
+              if (result.status === 'NOT_ELIGIBLE') qaFlags.push('ELIGIBILITY_NOT_ELIGIBLE');
+              else if (result.status === 'NEEDS_CONFIRMATION') qaFlags.push('ELIGIBILITY_NEEDS_CONFIRM');
+              await prisma.crawl_jobs_staging.update({
+                where: { id: row.id },
+                data: {
+                  eligibility_status: result.status,
+                  qa_flags: qaFlags.length ? qaFlags : undefined,
+                  updated_at: new Date(),
+                },
+              });
+            }
+            if (result.status === 'CONFIRMED') confirmed++;
+            else if (result.status === 'NEEDS_CONFIRMATION') needsConfirm++;
+            else notEligible++;
+          } catch {
+            /* skip */
+          }
+        }
+        console.log(`  pool           : ${pending.length}`);
+        console.log(`  CONFIRMED      : ${confirmed}`);
+        console.log(`  NEEDS_CONFIRM  : ${needsConfirm}`);
+        console.log(`  NOT_ELIGIBLE   : ${notEligible}`);
+        if (dryRun) console.log(`  (dry-run, no DB writes)`);
+        break;
+      }
+      case 'remote-digest': {
+        const dryRun = argv.includes('--dry-run');
+        console.log(`= remote-digest (dry_run=${dryRun}) =`);
+        const digestSvc = app.get(RemoteDailyDigestService);
+        const r = await digestSvc.runDailyDigest({ dryRun, candidateLimit: 1000 });
+        console.log(`  processed_candidates : ${r.processedCandidates}`);
+        console.log(`  sent_candidates      : ${r.sentCandidates}`);
+        console.log(`  skipped_empty        : ${r.skippedEmpty}`);
+        console.log(`  total_jobs_sent      : ${r.totalJobsSent}`);
+        if (dryRun) console.log(`  (dry-run, no Telegram messages sent / audit written)`);
         break;
       }
       case 'help':

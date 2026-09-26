@@ -1,6 +1,35 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, Optional } from '@nestjs/common';
+import type { EligibilityStatus } from '@prisma/client';
+import {
+  RemoteJobEligibilityService,
+  type EligibilityDimension,
+} from '@src/application/remote/remote-job-eligibility.service';
+import type { NormalizedRemoteJob } from '@src/domain/remote/remote-entities';
 import { PrismaService } from '@src/infrastructure/db/prisma/prisma.service';
 import { APP_ENV } from '@src/shared/env/app-env';
+
+const ELIGIBILITY_DIMENSION_LABELS: Record<EligibilityDimension['key'], string> = {
+  cambodia_allowed: '接受柬埔寨求职者',
+  country_restrictions: '国家/地区限制',
+  work_authorization: '当地工作许可要求',
+  timezone: '时区重叠要求',
+  independent_contractor: '独立承包商接受度',
+  cross_border_payment: '跨境付款支持',
+  application_url_accessible: '申请链接可访问性',
+} as const;
+
+const ELIGIBILITY_STATUS_LABELS: Record<EligibilityStatus, string> = {
+  CONFIRMED: '✅ 已确认合规',
+  NEEDS_CONFIRMATION: '⚠️ 需人工确认',
+  NOT_ELIGIBLE: '❌ 不合规',
+} as const;
+
+function formatEligibilityDim(d: EligibilityDimension): string {
+  const icon = d.result === 'PASS' ? '✅' : d.result === 'FAIL' ? '❌' : '❔';
+  const label = ELIGIBILITY_DIMENSION_LABELS[d.key] ?? d.key;
+  const reason = d.reason ? ` (${d.reason})` : '';
+  return `${icon} ${label}: ${d.result}${reason}`;
+}
 
 function fmtCreatedAt(d: Date | string | null | undefined): string {
   if (!d) return '-';
@@ -21,7 +50,10 @@ function fmtSalary(raw: string | null | undefined): string {
 export class CrawlerReviewNotifierService {
   private readonly logger = new Logger(CrawlerReviewNotifierService.name);
 
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    @Optional() private readonly remoteEligibility?: RemoteJobEligibilityService,
+  ) {}
 
   adminUsername(): string {
     return (process.env.CRAWLER_REVIEW_ADMIN_USERNAME || 'Faxonlei').replace(/^@/, '');
@@ -130,6 +162,34 @@ export class CrawlerReviewNotifierService {
     ]
       .filter(Boolean)
       .join('\n');
+    let remoteEligibilityBlock = '';
+    if (row.work_mode === 'REMOTE') {
+      const statusLabel =
+        ELIGIBILITY_STATUS_LABELS[row.eligibility_status] ?? row.eligibility_status;
+      const dimLines: string[] = [];
+      try {
+        const parsed = (row.parsed_json ?? {}) as Record<string, unknown>;
+        if (this.remoteEligibility) {
+          const normalized = parsed as unknown as NormalizedRemoteJob;
+          const check = this.remoteEligibility.evaluateSyncNoUrl(normalized, {
+            userTimezone: 'Asia/Phnom_Penh',
+            overlapMinHours: 2,
+          });
+          for (const dim of check.dimensions) {
+            dimLines.push(formatEligibilityDim(dim));
+          }
+        } else {
+          dimLines.push('❔ 资格评估服务未注入，跳过维度评估');
+        }
+      } catch (err) {
+        dimLines.push(`❔ 资格维度解析失败：${err instanceof Error ? err.message : String(err)}`);
+      }
+      remoteEligibilityBlock =
+        `🌐 远程岗位资格评估：${statusLabel}\n` +
+        (row.remote_scope ? `   地理范围：${row.remote_scope}\n` : '') +
+        (row.source_platform ? `   来源平台：${row.source_platform}\n` : '') +
+        `${dimLines.join('\n')}\n\n`;
+    }
     const text =
       `🔎 JobTinder 职位待审核 #${String(row.id)}\n\n` +
       `来源：${row.source?.name ?? '(未知)'}\n` +
@@ -138,6 +198,7 @@ export class CrawlerReviewNotifierService {
       `${titleLines.join('\n')}\n\n` +
       (detailLines.length ? `${detailLines.join('\n')}\n\n` : '') +
       (warnJoined ? `⚠️ 翻译 QA 警告：${warnJoined}\n\n` : '') +
+      remoteEligibilityBlock +
       (originalSummary ? `${originalSummary}\n\n` : '') +
       `原始链接：${row.source_url ?? ''}`;
     const ok = await this.send(text, [

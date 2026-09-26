@@ -28,6 +28,14 @@ export type OpsStats = {
   translationFailureRatePct: number | null;
   jobExpiryRatePct: number | null;
   jobStaleFailureRatePct: number | null;
+
+  reversal30d: {
+    effectiveJobRatePct: number | null;
+    companyResponse24hPct: number | null;
+    contactOpenRatePct: number | null;
+    interviewRatePct: number | null;
+    windowDays: number;
+  };
 };
 
 @Injectable()
@@ -43,6 +51,7 @@ export class OpsStatsService {
     const now = this.clock.now();
     const window24 = new Date(now.getTime() - 24 * 60 * 60 * 1000);
     const window72 = new Date(now.getTime() - 72 * 60 * 60 * 1000);
+    const window30d = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
 
     const [
       usersRegistered,
@@ -69,6 +78,13 @@ export class OpsStatsService {
       stagingExpired,
       jobsEverLifecycle,
       jobsStaleClosed,
+      rev30JobsLifecycle,
+      rev30JobsStaleClosed,
+      rev30InterestsResponded24h,
+      rev30InterestsTotal,
+      rev30Interests,
+      rev30MatchesContactOpened,
+      rev30Interviews,
     ] = await Promise.all([
       this.prisma.users.count(),
       this.prisma.candidate_profiles.count({
@@ -154,6 +170,62 @@ export class OpsStatsService {
           closed_reason: { in: ['STALE_SOURCE', 'STALE', 'NOT_FOUND', 'DEADLINE'] },
         },
       }),
+      this.prisma.jobs.count({
+        where: {
+          OR: [
+            { status: 'ACTIVE_EXTERNAL' },
+            { status: 'ACTIVE_CLAIMED' },
+            { status: 'CLOSED' },
+            { status: 'PAUSED' },
+          ],
+          created_at: { gte: window30d },
+        },
+      }),
+      this.prisma.jobs.count({
+        where: {
+          status: 'CLOSED',
+          closed_reason: { in: ['STALE_SOURCE', 'STALE', 'NOT_FOUND', 'DEADLINE'] },
+          closed_at: { gte: window30d },
+        },
+      }),
+      this.prisma.interests.count({
+        where: {
+          notified_at: { gte: window30d },
+          processed_at: { not: null, lte: new Date(window24.getTime() + 24 * 3600 * 1000) },
+        },
+      }),
+      this.prisma.interests.count({ where: { notified_at: { gte: window30d } } }),
+      this.prisma.interests.count({ where: { created_at: { gte: window30d } } }),
+      this.prisma.matches.count({
+        where: { status: 'CONTACT_AVAILABLE', created_at: { gte: window30d } },
+      }),
+      this.prisma.$queryRaw<{ cnt: bigint | number }[]>`
+        SELECT COUNT(DISTINCT COALESCE(related_job_id, (metadata->>'related_job_id')::bigint, id))::int AS cnt
+        FROM audit_events
+        WHERE action IN ('CANDIDATE_STATUS_CHANGED', 'COMPANY_JOB_STATUS_CHANGED')
+          AND created_at >= ${window30d}
+          AND (
+            (new_status = 'INTERVIEWING')
+            OR (metadata->>'new_status' = 'INTERVIEWING')
+          )
+      `
+        .then((rows) => Number(rows[0]?.cnt ?? 0))
+        .catch(() =>
+          Promise.all([
+            this.prisma.candidate_profiles.count({
+              where: {
+                job_search_status: 'INTERVIEWING',
+                job_search_status_updated_at: { gte: window30d },
+              },
+            }),
+            this.prisma.jobs.count({
+              where: {
+                hiring_status: 'INTERVIEWING',
+                hiring_status_updated_at: { gte: window30d },
+              },
+            }),
+          ]).then(([c, j]) => c + j),
+        ),
     ]);
 
     const companyOverallResponseRatePct = pct(interestsTotalResponded, interestsTotal);
@@ -163,6 +235,17 @@ export class OpsStatsService {
     const translationFailureRatePct = pct(stagingFailedTranslation, stagingTotal);
     const jobExpiryRatePct = pct(stagingExpired, stagingTotal);
     const jobStaleFailureRatePct = pct(jobsStaleClosed, jobsEverLifecycle);
+
+    const reversal30d: OpsStats['reversal30d'] = {
+      windowDays: 30,
+      effectiveJobRatePct:
+        rev30JobsLifecycle > 0
+          ? Math.max(0, 100 - (rev30JobsStaleClosed / rev30JobsLifecycle) * 100)
+          : null,
+      companyResponse24hPct: pct(rev30InterestsResponded24h, rev30InterestsTotal),
+      contactOpenRatePct: pct(rev30MatchesContactOpened, rev30Interests),
+      interviewRatePct: pct(rev30Interviews, rev30Interests),
+    };
 
     return {
       generatedAt: now,
@@ -185,15 +268,28 @@ export class OpsStatsService {
       translationFailureRatePct,
       jobExpiryRatePct,
       jobStaleFailureRatePct,
+      reversal30d,
     };
   }
 
   formatAscii(s: OpsStats): string {
     const pctFmt = (v: number | null) => (v == null ? 'N/A' : `${v.toFixed(1)}%`);
     const pilotPass = (cond: boolean) => (cond ? '✓' : '·');
+    const warn = (isOk: boolean) => (isOk ? '✅ PASS' : '⚠️ WARN');
+    const r = s.reversal30d;
+    const effectiveJobOk = (r.effectiveJobRatePct ?? 100) >= 70;
+    const resp24Ok = (r.companyResponse24hPct ?? 100) >= 30;
+    const contactOk = (r.contactOpenRatePct ?? 100) >= 20;
+    const interviewOk = (r.interviewRatePct ?? 100) >= 5;
     const lines = [
-      `JobTinder 运营统计 — ${this.formatDate(s.generatedAt)}`,
+      `JobTinder 运营统计 — ${this.formatDate(s.generatedAt)}  (window=${r.windowDays}d)`,
       `═══════════════════════════════════════════════════`,
+      `🛡️  反转条件预警（30 天窗口）`,
+      `   有效岗位率 ≥70%             ${warn(effectiveJobOk)}   ${pctFmt(r.effectiveJobRatePct)}   threshold=70%`,
+      `   企业 24h 响应率 ≥30%        ${warn(resp24Ok)}   ${pctFmt(r.companyResponse24hPct)}   threshold=30%`,
+      `   匹配联系开启率 ≥20%         ${warn(contactOk)}   ${pctFmt(r.contactOpenRatePct)}   threshold=20%`,
+      `   面试转化率 ≥5%              ${warn(interviewOk)}   ${pctFmt(r.interviewRatePct)}   threshold=5%`,
+      ``,
       `🎯 14 天试点验收（目标 vs 现状）`,
       `   真实求职者（≥30）  ${pilotPass(s.candidatesConfirmed >= 30)}  已确认档案：${s.candidatesConfirmed} / 30`,
       `   真实岗位（10–20）   ${pilotPass(s.jobsActive >= 10 && s.jobsActive <= 20)}  有效职位：${s.jobsActive}`,
@@ -237,9 +333,20 @@ export class OpsStatsService {
   formatTelegram(s: OpsStats): string {
     const pctFmt = (v: number | null) => (v == null ? '—' : `${v.toFixed(1)}%`);
     const ok = (cond: boolean) => (cond ? '✅' : '▫️');
+    const revIcon = (cond: boolean) => (cond ? '✅' : '⚠️');
+    const r = s.reversal30d;
+    const effectiveJobOk = (r.effectiveJobRatePct ?? 100) >= 70;
+    const resp24Ok = (r.companyResponse24hPct ?? 100) >= 30;
+    const contactOk = (r.contactOpenRatePct ?? 100) >= 20;
+    const interviewOk = (r.interviewRatePct ?? 100) >= 5;
     return (
       `📊 JobTinder 运营统计\n` +
-      `生成时间：${this.formatDate(s.generatedAt)}\n\n` +
+      `生成时间：${this.formatDate(s.generatedAt)}  (窗口 ${r.windowDays} 天)\n\n` +
+      `🛡️ 反转条件预警（30天）\n` +
+      `  ${revIcon(effectiveJobOk)} 有效岗位率：${pctFmt(r.effectiveJobRatePct)}  (≥70%)\n` +
+      `  ${revIcon(resp24Ok)} 企业 24h 响应率：${pctFmt(r.companyResponse24hPct)}  (≥30%)\n` +
+      `  ${revIcon(contactOk)} 联系开启率：${pctFmt(r.contactOpenRatePct)}  (≥20%)\n` +
+      `  ${revIcon(interviewOk)} 面试转化率：${pctFmt(r.interviewRatePct)}  (≥5%)\n\n` +
       `🎯 14 天试点验收\n` +
       `  ${ok(s.candidatesConfirmed >= 30)} 真实求职者：${s.candidatesConfirmed} / 30\n` +
       `  ${ok(s.jobsActive >= 10 && s.jobsActive <= 20)} 有效岗位：${s.jobsActive}\n` +

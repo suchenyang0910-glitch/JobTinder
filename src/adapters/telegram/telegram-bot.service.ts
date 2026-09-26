@@ -126,6 +126,7 @@ export class TelegramBotService implements OnModuleInit, OnModuleDestroy {
     bot.command('stats', (ctx) => this.safeRun(ctx, (c) => this.handleStatsCommand(c)));
     bot.command('delete', (ctx) => ctx.reply('Feature coming in stage-2. Use /cancel for now.'));
     bot.command('matches', (ctx) => this.safeRun(ctx, (c) => this.handleMatches(c)));
+    bot.command('remote', (ctx) => this.safeRun(ctx, (c) => this.handleRemote(c)));
     bot.command('settings', (ctx) => ctx.reply('Feature coming in stage-2.'));
 
     // Callback queries
@@ -192,9 +193,6 @@ export class TelegramBotService implements OnModuleInit, OnModuleDestroy {
     bot.callbackQuery(/^crawler_source:(approve|reject):(\d+)$/, (ctx) =>
       this.safeRun(ctx, (c) => this.handleCrawlerSourceReview(c)),
     );
-    bot.callbackQuery(/^menu:(find|matches)$/, (ctx) =>
-      this.safeRun(ctx, (c) => this.handleMenuAction(c)),
-    );
     bot.callbackQuery(/^match:interest:(\d+)$/, (ctx) =>
       this.safeRun(ctx, (c) => this.handleJobInterest(c)),
     );
@@ -203,6 +201,13 @@ export class TelegramBotService implements OnModuleInit, OnModuleDestroy {
     );
     bot.callbackQuery(/^match:status:(LOOKING_JOB|INTERVIEWING|FOUND_JOB|NOT_LOOKING)$/, (ctx) =>
       this.safeRun(ctx, (c) => this.handleCandidateStatus(c)),
+    );
+    bot.callbackQuery(
+      /^remote:(save|applied|interview|foundJob|followUp3d|expressInterest):(\d+)$/,
+      (ctx) => this.safeRun(ctx, (c) => this.handleRemoteJobAction(c)),
+    );
+    bot.callbackQuery(/^menu:(find|matches|remote)$/, (ctx) =>
+      this.safeRun(ctx, (c) => this.handleMenuAction(c)),
     );
 
     // Plain text
@@ -286,6 +291,8 @@ export class TelegramBotService implements OnModuleInit, OnModuleDestroy {
       .text(T.MENU.profileCompany(), 'menu:profile:company')
       .row()
       .text(T.MENU.findJobs(), 'menu:find')
+      .text('🌐 远程岗位', 'menu:remote')
+      .row()
       .text(T.MENU.viewMatches(), 'menu:matches')
       .row()
       .text(T.MENU.settings(), 'menu:settings')
@@ -647,6 +654,7 @@ export class TelegramBotService implements OnModuleInit, OnModuleDestroy {
     const action = ctx.callbackQuery?.data?.split(':')[1];
     await ctx.answerCallbackQuery().catch(() => undefined);
     if (action === 'find' || action === 'matches') await this.handleMatches(ctx);
+    if (action === 'remote') await this.handleRemote(ctx);
   }
 
   /** Candidate-facing matching loop: show only active, hard-compatible jobs and
@@ -667,13 +675,20 @@ export class TelegramBotService implements OnModuleInit, OnModuleDestroy {
     }
     const suggestions = await this.hardMatch.suggest({ candidateId: profile.id, limit: 5 });
     if (!suggestions.jobs.length) {
-      await ctx.reply('暂时没有同时满足技能、岗位、行业、地点或语言条件的有效职位。我们会继续更新。');
+      await ctx.reply(
+        '暂时没有同时满足技能、岗位、行业、地点或语言条件的有效职位。我们会继续更新。',
+      );
     } else {
       await ctx.reply('🔎 为你找到以下合适职位。双方表达兴趣后才会开放联系：');
       for (const job of suggestions.jobs) {
         const row = await this.prisma.jobs.findUnique({
           where: { id: job.jobId },
-          select: { salary_text: true, source_url: true, languages_required: true, locations: true },
+          select: {
+            salary_text: true,
+            source_url: true,
+            languages_required: true,
+            locations: true,
+          },
         });
         const lines = [
           `💼 ${job.title}`,
@@ -685,7 +700,10 @@ export class TelegramBotService implements OnModuleInit, OnModuleDestroy {
           row?.source_url ? `来源：${row.source_url}` : '',
         ].filter(Boolean);
         await ctx.reply(lines.join('\n'), {
-          reply_markup: new InlineKeyboard().text('❤️ 我感兴趣', `match:interest:${String(job.jobId)}`),
+          reply_markup: new InlineKeyboard().text(
+            '❤️ 我感兴趣',
+            `match:interest:${String(job.jobId)}`,
+          ),
         });
       }
     }
@@ -709,17 +727,180 @@ export class TelegramBotService implements OnModuleInit, OnModuleDestroy {
           .join('\n')}`,
       );
     }
-    await ctx.reply(
-      `当前求职状态：${profile.job_search_status ?? 'LOOKING_JOB'}`,
-      {
-        reply_markup: new InlineKeyboard()
-          .text('继续找工作', 'match:status:LOOKING_JOB')
-          .text('面试中', 'match:status:INTERVIEWING')
-          .row()
-          .text('已找到工作', 'match:status:FOUND_JOB')
-          .text('暂不找工作', 'match:status:NOT_LOOKING'),
-      },
+    await ctx.reply(`当前求职状态：${profile.job_search_status ?? 'LOOKING_JOB'}`, {
+      reply_markup: new InlineKeyboard()
+        .text('继续找工作', 'match:status:LOOKING_JOB')
+        .text('面试中', 'match:status:INTERVIEWING')
+        .row()
+        .text('已找到工作', 'match:status:FOUND_JOB')
+        .text('暂不找工作', 'match:status:NOT_LOOKING'),
+    });
+  }
+
+  private async handleRemote(ctx: TeleCtx) {
+    const { userId } = await this.ensureIdentity(ctx);
+    const profile = await this.prisma.candidate_profiles.findFirst({
+      where: { user_id: userId, deleted_at: null, status: 'CONFIRMED' },
+      orderBy: { version: 'desc' },
+      select: { id: true, job_search_status: true },
+    });
+    if (!profile) {
+      await ctx.reply('请先完成并确认求职资料，再查看远程岗位。使用 /profile。');
+      return;
+    }
+    const suggestions = await this.hardMatch.suggest({
+      candidateId: profile.id,
+      limit: 5,
+      remoteScope: true,
+    });
+    if (!suggestions.jobs.length) {
+      await ctx.reply(
+        '暂时没有已批准的远程岗位匹配。我们会继续同步 Remotive / RemoteOK 等来源，稍后再试。',
+      );
+      return;
+    }
+    await ctx.reply('🌐 为你找到以下已批准的远程岗位：');
+    for (const job of suggestions.jobs) {
+      const lines = [
+        `🌐 ${job.title}`,
+        job.industry ? `行业：${job.industry}` : '',
+        `匹配度：${job.matchScore}`,
+        job.remoteScope ? `远程范围：${job.remoteScope}` : '',
+        `资格状态：${job.eligibilityStatus ?? 'NEEDS_CONFIRMATION'}`,
+        `薪资：${job.salaryText || '面议'}`,
+        job.sourcePlatform ? `来源平台：${job.sourcePlatform}` : '',
+        job.matchReason ? `\n📌 匹配原因：${job.matchReason}` : '',
+        job.needToConfirm.length
+          ? `⚠️ 需要确认：\n${job.needToConfirm.map((s) => `  • ${s}`).join('\n')}`
+          : '',
+      ].filter(Boolean);
+      const kb = new InlineKeyboard()
+        .text('💾 收藏', `remote:save:${String(job.jobId)}`)
+        .text('✅ 已投递', `remote:applied:${String(job.jobId)}`)
+        .text('🎙️ 面试中', `remote:interview:${String(job.jobId)}`)
+        .row()
+        .text('🎉 已入职', `remote:foundJob:${String(job.jobId)}`)
+        .text('🔔 3天后跟进', `remote:followUp3d:${String(job.jobId)}`)
+        .row()
+        .text('❤️ 表达兴趣', `remote:expressInterest:${String(job.jobId)}`);
+      if (job.applicationUrl) {
+        kb.row().url('🔗 原始申请链接', job.applicationUrl);
+      } else if (job.sourceUrl) {
+        kb.row().url('🔗 原始申请链接', job.sourceUrl);
+      }
+      await ctx.reply(lines.join('\n'), {
+        reply_markup: kb,
+        disable_web_page_preview: true,
+      } as never);
+    }
+  }
+
+  private async handleRemoteJobAction(ctx: TeleCtx) {
+    const m = /^remote:(save|applied|interview|foundJob|followUp3d|expressInterest):(\d+)$/.exec(
+      ctx.callbackQuery?.data ?? '',
     );
+    if (!m) return;
+    const action = m[1] as
+      'save' | 'applied' | 'interview' | 'foundJob' | 'followUp3d' | 'expressInterest';
+    const rawId = m[2];
+    if (!rawId) return;
+    const jobId = BigInt(rawId);
+    const { userId } = await this.ensureIdentity(ctx);
+    const profile = await this.prisma.candidate_profiles.findFirst({
+      where: { user_id: userId, deleted_at: null, status: 'CONFIRMED' },
+      orderBy: { version: 'desc' },
+      select: { id: true },
+    });
+    if (!profile) {
+      await ctx.answerCallbackQuery({ text: '请先完成求职资料', show_alert: true });
+      return;
+    }
+    const remoteJob = await this.prisma.jobs.findFirst({
+      where: {
+        id: jobId,
+        status: { in: ['ACTIVE_EXTERNAL', 'ACTIVE_CLAIMED'] },
+        work_mode: 'REMOTE',
+      },
+      select: { id: true },
+    });
+    if (!remoteJob) {
+      await ctx.answerCallbackQuery({ text: '该远程岗位已下架或尚未批准', show_alert: true });
+      return;
+    }
+    await ctx.answerCallbackQuery().catch(() => undefined);
+    const now = new Date();
+    type RemoteActionKey =
+      'save' | 'applied' | 'interview' | 'foundJob' | 'followUp3d' | 'expressInterest';
+    const actionLabel: Record<RemoteActionKey, { status: string; label: string }> = {
+      save: { status: 'SAVED', label: '💾 已收藏' },
+      applied: { status: 'APPLIED', label: '✅ 已投递' },
+      interview: { status: 'INTERVIEW', label: '🎙️ 面试中' },
+      foundJob: { status: 'OFFER', label: '🎉 已入职' },
+      followUp3d: { status: 'APPLIED', label: '🔔 跟进提醒已设置' },
+      expressInterest: { status: 'SAVED', label: '❤️ 已表达兴趣' },
+    };
+    const cfg = actionLabel[action];
+    const followUpAt =
+      action === 'followUp3d' ? new Date(now.getTime() + 3 * 24 * 60 * 60 * 1000) : undefined;
+    try {
+      await this.prisma.$transaction(async (tx) => {
+        const existing = await tx.job_applications.findFirst({
+          where: { candidate_id: profile.id, job_id: jobId },
+          select: { id: true, status: true },
+        });
+        if (existing) {
+          await tx.job_applications.update({
+            where: { id: existing.id },
+            data: {
+              status: cfg.status as never,
+              applied_at: action === 'applied' ? now : undefined,
+              last_action_at: now,
+              next_follow_up_at: followUpAt ?? undefined,
+              version: { increment: 1 },
+            },
+          });
+        } else {
+          const idemKey = `remote:action:${profile.id.toString()}:${jobId.toString()}:${cfg.status}`;
+          await tx.job_applications.create({
+            data: {
+              idempotency_key: idemKey,
+              candidate_id: profile.id,
+              job_id: jobId,
+              status: cfg.status as never,
+              applied_at: action === 'applied' ? now : undefined,
+              last_action_at: now,
+              next_follow_up_at: followUpAt ?? undefined,
+            },
+          });
+        }
+      });
+      if (action === 'expressInterest') {
+        await this.matchWorkflow.candidateExpressInterest(userId, jobId).catch(() => undefined);
+      }
+      if (action === 'foundJob') {
+        await this.resultFeedback
+          .updateCandidateJobSearchStatus(userId, 'FOUND_JOB', {
+            source: 'MANUAL',
+            relatedJobId: jobId,
+          })
+          .catch(() => undefined);
+      }
+      await ctx
+        .editMessageReplyMarkup({
+          reply_markup: new InlineKeyboard().text(cfg.label, 'noop'),
+        })
+        .catch(() => undefined);
+      const extra =
+        action === 'followUp3d' ? `（3天后：${followUpAt?.toISOString().slice(0, 10)}）` : '';
+      await ctx.reply(`${cfg.label}${extra}`);
+    } catch (e) {
+      this.logger.warn(
+        `Remote job action failed: action=${action} job=${jobId.toString()} user=${userId.toString()} err=${
+          e instanceof Error ? e.message : String(e)
+        }`,
+      );
+      await ctx.reply('操作失败，请稍后重试。');
+    }
   }
 
   private async handleCompanyMatches(ctx: TeleCtx, userId: bigint): Promise<boolean> {
@@ -729,7 +910,10 @@ export class TelegramBotService implements OnModuleInit, OnModuleDestroy {
     });
     if (!membership) return false;
     const jobs = await this.prisma.jobs.findMany({
-      where: { company_id: membership.company_id, status: { in: ['ACTIVE_CLAIMED', 'ACTIVE_EXTERNAL'] } },
+      where: {
+        company_id: membership.company_id,
+        status: { in: ['ACTIVE_CLAIMED', 'ACTIVE_EXTERNAL'] },
+      },
       select: { id: true, title: true },
       take: 50,
     });
@@ -745,9 +929,15 @@ export class TelegramBotService implements OnModuleInit, OnModuleDestroy {
     const jobById = new Map(jobs.map((j) => [j.id.toString(), j.title]));
     await ctx.reply('🏢 待回应的候选人兴趣：');
     for (const i of interests) {
-      await ctx.reply(`职位：${jobById.get(i.job_id.toString()) ?? `#${i.job_id.toString()}`}\n候选人档案：#${i.candidate_id.toString()}`, {
-        reply_markup: new InlineKeyboard().text('❤️ 感兴趣并开放联系', `match:company-interest:${i.job_id.toString()}:${i.candidate_id.toString()}`),
-      });
+      await ctx.reply(
+        `职位：${jobById.get(i.job_id.toString()) ?? `#${i.job_id.toString()}`}\n候选人档案：#${i.candidate_id.toString()}`,
+        {
+          reply_markup: new InlineKeyboard().text(
+            '❤️ 感兴趣并开放联系',
+            `match:company-interest:${i.job_id.toString()}:${i.candidate_id.toString()}`,
+          ),
+        },
+      );
     }
     return true;
   }
@@ -758,9 +948,14 @@ export class TelegramBotService implements OnModuleInit, OnModuleDestroy {
     await ctx.answerCallbackQuery({ text: '已记录你的兴趣' }).catch(() => undefined);
     const { userId } = await this.ensureIdentity(ctx);
     const result = await this.matchWorkflow.candidateExpressInterest(userId, BigInt(m[1]!));
-    await ctx.editMessageReplyMarkup({
-      reply_markup: new InlineKeyboard().text(result.matchCreated ? '✅ 已匹配' : '✅ 已表达兴趣', 'noop'),
-    }).catch(() => undefined);
+    await ctx
+      .editMessageReplyMarkup({
+        reply_markup: new InlineKeyboard().text(
+          result.matchCreated ? '✅ 已匹配' : '✅ 已表达兴趣',
+          'noop',
+        ),
+      })
+      .catch(() => undefined);
     await ctx.reply(
       result.matchCreated
         ? '🎉 双方都表达了兴趣，联系已开放。请尽快查看来源并联系企业。'
@@ -770,11 +965,7 @@ export class TelegramBotService implements OnModuleInit, OnModuleDestroy {
 
   private async handleCandidateStatus(ctx: TeleCtx) {
     const status = ctx.callbackQuery?.data?.split(':')[2] as
-      | 'LOOKING_JOB'
-      | 'INTERVIEWING'
-      | 'FOUND_JOB'
-      | 'NOT_LOOKING'
-      | undefined;
+      'LOOKING_JOB' | 'INTERVIEWING' | 'FOUND_JOB' | 'NOT_LOOKING' | undefined;
     if (!status) return;
     await ctx.answerCallbackQuery().catch(() => undefined);
     const { userId } = await this.ensureIdentity(ctx);
@@ -787,11 +978,24 @@ export class TelegramBotService implements OnModuleInit, OnModuleDestroy {
     if (!m) return;
     await ctx.answerCallbackQuery({ text: '已记录企业兴趣' }).catch(() => undefined);
     const { userId } = await this.ensureIdentity(ctx);
-    const result = await this.matchWorkflow.companyExpressInterest(userId, BigInt(m[1]!), BigInt(m[2]!));
-    await ctx.editMessageReplyMarkup({
-      reply_markup: new InlineKeyboard().text(result.matchCreated ? '✅ 已匹配' : '✅ 已回应', 'noop'),
-    }).catch(() => undefined);
-    await ctx.reply(result.matchCreated ? '🎉 双方都表达了兴趣，联系已开放。' : '✅ 已记录企业兴趣，等待候选人回应。');
+    const result = await this.matchWorkflow.companyExpressInterest(
+      userId,
+      BigInt(m[1]!),
+      BigInt(m[2]!),
+    );
+    await ctx
+      .editMessageReplyMarkup({
+        reply_markup: new InlineKeyboard().text(
+          result.matchCreated ? '✅ 已匹配' : '✅ 已回应',
+          'noop',
+        ),
+      })
+      .catch(() => undefined);
+    await ctx.reply(
+      result.matchCreated
+        ? '🎉 双方都表达了兴趣，联系已开放。'
+        : '✅ 已记录企业兴趣，等待候选人回应。',
+    );
   }
 
   private async handleStatsCommand(ctx: TeleCtx) {

@@ -21,6 +21,11 @@ import { PrismaModule } from '@src/infrastructure/db/prisma/prisma.module';
 import { SharedModule } from '@src/shared/shared.module';
 import { CrawlerReviewNotifierService } from './crawler/crawler-review-notifier.service';
 import { SourceDiscoveryService } from './crawler/source-discovery.service';
+import { RemoteSourceSyncOrchestratorService } from './remote/remote-source-sync-orchestrator.service';
+import { RemoteJobNormalizeService } from './remote/remote-job-normalize.service';
+import { RemoteJobEligibilityService } from './remote/remote-job-eligibility.service';
+import { RemoteDailyDigestService } from './remote/remote-daily-digest.service';
+import { JobApplicationService } from './job-application.service';
 
 @Module({
   imports: [SharedModule, PrismaModule],
@@ -43,6 +48,11 @@ import { SourceDiscoveryService } from './crawler/source-discovery.service';
     SourceValidationService,
     CrawlerReviewNotifierService,
     SourceDiscoveryService,
+    RemoteSourceSyncOrchestratorService,
+    RemoteJobNormalizeService,
+    RemoteJobEligibilityService,
+    RemoteDailyDigestService,
+    JobApplicationService,
   ],
   exports: [
     UserIdentityService,
@@ -63,6 +73,11 @@ import { SourceDiscoveryService } from './crawler/source-discovery.service';
     SourceValidationService,
     CrawlerReviewNotifierService,
     SourceDiscoveryService,
+    RemoteSourceSyncOrchestratorService,
+    RemoteJobNormalizeService,
+    RemoteJobEligibilityService,
+    RemoteDailyDigestService,
+    JobApplicationService,
   ],
 })
 export class ApplicationModule {}

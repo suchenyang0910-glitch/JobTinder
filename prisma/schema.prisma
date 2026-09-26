@@ -138,6 +138,53 @@ enum SourceParserType {
   PLAYWRIGHT
   FIRECRAWL
   MANUAL
+  API
+  RSS
+}
+
+enum WorkMode {
+  REMOTE
+  ONSITE
+  HYBRID
+}
+
+enum RemoteScope {
+  WORLDWIDE
+  ASIA
+  ASEAN
+  CAMBODIA_ONLY
+  COUNTRY_LIMITED
+}
+
+enum WorkAuthorization {
+  REQUIRED
+  NOT_REQUIRED
+  UNKNOWN
+}
+
+enum EmploymentType {
+  FULL_TIME
+  PART_TIME
+  CONTRACT
+  FREELANCE
+  INTERNSHIP
+}
+
+enum EligibilityStatus {
+  CONFIRMED
+  NEEDS_CONFIRMATION
+  NOT_ELIGIBLE
+}
+
+enum ApplicationStatus {
+  SAVED
+  APPLYING
+  APPLIED
+  SCREENING
+  INTERVIEW
+  OFFER
+  REJECTED
+  EXPIRED
 }
 
 enum SourceReviewStatus {
@@ -236,6 +283,12 @@ enum AuditAction {
   COMPANY_JOB_STATUS_CHANGED
   TRUST_REPORT_SUBMITTED
   TRUST_BLOCK_EFFECTIVE
+  REMOTE_SOURCE_SYNCED
+  REMOTE_JOB_NORMALIZED
+  REMOTE_ELIGIBILITY_CHECKED
+  REMOTE_DAILY_DIGEST_SENT
+  JOB_APPLICATION_STATUS_CHANGED
+  FOLLOW_UP_REMINDER_SENT
 }
 
 // ---------- Users ----------
@@ -284,6 +337,16 @@ model candidate_profiles {
   job_search_status_updated_at   DateTime?
   job_search_status_source       StatusSource @default(MANUAL)
 
+  remote_preferred                     Boolean              @default(false)
+  remote_scope_preference              RemoteScope?
+  timezone                             String?              @db.VarChar(64)
+  timezone_overlap_hours               Int?
+  eligible_work_countries              String[]             @default([])
+  work_authorization_status            WorkAuthorization    @default(UNKNOWN)
+  preferred_employment_types           EmploymentType[]     @default([])
+  payment_methods                      String[]             @default([])
+  remote_salary_expectation            String?              @db.VarChar(256)
+
   field_sources     Json         @default("{}") // { skills: 'ai_extracted'|'user_confirmed', ... }
 
   draft_source      String?      @db.VarChar(64) // manual / ai / mock
@@ -297,6 +360,7 @@ model candidate_profiles {
   user              users        @relation(fields: [user_id], references: [id], onDelete: Cascade)
   interests         interests[]  @relation("candidate_interests")
   matches           matches[]    @relation("candidate_matches")
+  job_applications  job_applications[]
 
   @@unique([user_id, version], name: "cand_user_version_uq")
   @@index([user_id, status])
@@ -360,6 +424,21 @@ model jobs {
   salary_status     SalaryStatus @default(NOT_PROVIDED)
   salary_text       String?      @db.VarChar(256)
 
+  work_mode                     WorkMode           @default(ONSITE)
+  remote_scope                  RemoteScope?
+  eligible_countries            String[]           @default([])
+  employer_country              String?            @db.VarChar(128)
+  timezone_required             String?            @db.VarChar(64)
+  timezone_overlap_hours        Int?
+  work_authorization            WorkAuthorization  @default(UNKNOWN)
+  employment_type               EmploymentType?
+  payment_method                String?            @db.VarChar(128)
+  salary_currency               String?            @db.VarChar(16)
+  application_url               String?            @db.VarChar(2048)
+  source_platform               String?            @db.VarChar(128)
+  source_last_seen_at           DateTime?
+  eligibility_status            EligibilityStatus  @default(NEEDS_CONFIRMATION)
+
   original_published_at DateTime?
   original_deadline_at  DateTime?
   last_checked_at       DateTime?
@@ -382,6 +461,7 @@ model jobs {
   interests         interests[]  @relation("job_interests")
   matches           matches[]    @relation("job_matches")
   published_from_crawl crawl_jobs_staging?
+  job_applications  job_applications[]
 
   @@unique([source_job_id, source_type], name: "job_source_uq")
   @@index([status])
@@ -619,6 +699,22 @@ model crawl_jobs_staging {
   parse_version       String                @db.VarChar(64) @default("1.0")
   published_job_id    BigInt?               @unique
   qa_flags            String[]              @default([])
+
+  work_mode                     WorkMode           @default(ONSITE)
+  remote_scope                  RemoteScope?
+  eligible_countries            String[]           @default([])
+  employer_country              String?            @db.VarChar(128)
+  timezone_required             String?            @db.VarChar(64)
+  timezone_overlap_hours        Int?
+  work_authorization            WorkAuthorization  @default(UNKNOWN)
+  employment_type               EmploymentType?
+  payment_method                String?            @db.VarChar(128)
+  salary_currency               String?            @db.VarChar(16)
+  application_url               String?            @db.VarChar(2048)
+  source_platform               String?            @db.VarChar(128)
+  source_last_seen_at           DateTime?
+  eligibility_status            EligibilityStatus  @default(NEEDS_CONFIRMATION)
+
   expiry_date         DateTime?
   last_confirmed_at   DateTime?
   closed_reason       String?               @db.VarChar(1024)
@@ -685,4 +781,33 @@ model crawl_runs {
   source                source_registry @relation(fields: [source_id], references: [id], onDelete: Cascade)
 
   @@index([source_id, started_at])
+}
+
+// ---------- Job Applications (投递追踪) ----------
+
+model job_applications {
+  id                BigInt            @id @default(autoincrement())
+  idempotency_key   String            @unique @db.VarChar(512)
+
+  candidate_id      BigInt
+  job_id            BigInt
+
+  application_url   String?           @db.VarChar(2048)
+  applied_at        DateTime?
+  status            ApplicationStatus @default(SAVED)
+  next_follow_up_at DateTime?
+  last_action_at    DateTime?
+  notes             String?           @db.VarChar(4000)
+
+  version           Int               @default(1)
+  created_at        DateTime          @default(now())
+  updated_at        DateTime          @updatedAt
+
+  candidate         candidate_profiles @relation(fields: [candidate_id], references: [id], onDelete: Cascade)
+  job               jobs             @relation(fields: [job_id], references: [id], onDelete: Cascade)
+
+  @@unique([candidate_id, job_id], name: "application_cand_job_uq")
+  @@index([candidate_id, status])
+  @@index([job_id, status])
+  @@index([status, next_follow_up_at])
 }
