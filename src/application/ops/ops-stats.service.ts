@@ -6,10 +6,15 @@ export type OpsStats = {
   generatedAt: Date;
 
   usersRegistered: number;
+  usersActive: number;
+  usersActive24h: number;
   candidatesConfirmed: number;
   companiesTotal: number;
   companiesVerified: number;
   jobsActive: number;
+  jobsCambodiaCompany: number;
+  jobsRemote: number;
+  jobsHiring: number;
   jobsPendingReview: number;
 
   interestsTotal: number;
@@ -55,10 +60,15 @@ export class OpsStatsService {
 
     const [
       usersRegistered,
+      usersActive,
+      usersActive24h,
       candidatesConfirmed,
       companiesTotal,
       companiesVerified,
       jobsActive,
+      jobsCambodiaCompany,
+      jobsRemote,
+      jobsHiring,
       jobsPendingReview,
       interestsTotal,
       interestsTotalResponded,
@@ -87,6 +97,8 @@ export class OpsStatsService {
       rev30Interviews,
     ] = await Promise.all([
       this.prisma.users.count(),
+      this.prisma.users.count({ where: { status: 'ACTIVE' } }),
+      this.prisma.users.count({ where: { status: 'ACTIVE', updated_at: { gte: window24 } } }),
       this.prisma.candidate_profiles.count({
         where: { status: 'CONFIRMED', deleted_at: null },
       }),
@@ -95,6 +107,22 @@ export class OpsStatsService {
       this.prisma.jobs.count({
         where: {
           OR: [{ status: 'ACTIVE_EXTERNAL' }, { status: 'ACTIVE_CLAIMED' }],
+        },
+      }),
+      this.prisma.jobs.count({
+        where: {
+          company_id: { not: null },
+          work_mode: { not: 'REMOTE' },
+          status: { in: ['ACTIVE_EXTERNAL', 'ACTIVE_CLAIMED'] },
+        },
+      }),
+      this.prisma.jobs.count({
+        where: { work_mode: 'REMOTE', status: { in: ['ACTIVE_EXTERNAL', 'ACTIVE_CLAIMED'] } },
+      }),
+      this.prisma.jobs.count({
+        where: {
+          hiring_status: { in: ['OPEN', 'INTERVIEWING'] },
+          status: { in: ['ACTIVE_EXTERNAL', 'ACTIVE_CLAIMED'] },
         },
       }),
       this.prisma.crawl_jobs_staging.count({
@@ -250,10 +278,15 @@ export class OpsStatsService {
     return {
       generatedAt: now,
       usersRegistered,
+      usersActive,
+      usersActive24h,
       candidatesConfirmed,
       companiesTotal,
       companiesVerified,
       jobsActive,
+      jobsCambodiaCompany,
+      jobsRemote,
+      jobsHiring,
       jobsPendingReview,
       interestsTotal,
       matchesTotal,
@@ -356,10 +389,15 @@ export class OpsStatsService {
       `  ${ok((s.jobStaleFailureRatePct ?? 0) < 20)} 岗位失效率：${pctFmt(s.jobStaleFailureRatePct)} (<20%)\n\n` +
       `👥 用户与企业\n` +
       `  注册用户：${s.usersRegistered}\n` +
+      `  活跃用户：${s.usersActive}\n` +
+      `  24小时活跃：${s.usersActive24h}\n` +
       `  已确认求职档案：${s.candidatesConfirmed}\n` +
       `  企业总数：${s.companiesTotal}\n` +
       `  已验证企业：${s.companiesVerified}\n\n` +
       `💼 职位\n` +
+      `  柬埔寨企业岗位：${s.jobsCambodiaCompany}\n` +
+      `  远程岗位：${s.jobsRemote}\n` +
+      `  招聘中：${s.jobsHiring}\n` +
       `  有效职位：${s.jobsActive}\n` +
       `  待审核职位：${s.jobsPendingReview}\n` +
       `  岗位失效率：${pctFmt(s.jobStaleFailureRatePct)}\n\n` +
