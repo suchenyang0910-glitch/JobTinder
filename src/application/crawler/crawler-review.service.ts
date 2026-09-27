@@ -1,4 +1,4 @@
-import { Inject, Injectable, Logger } from '@nestjs/common';
+import { forwardRef, Inject, Injectable, Logger } from '@nestjs/common';
 import type {
   CrawlJobStatus,
   JobSourceType,
@@ -25,7 +25,7 @@ export class CrawlerReviewService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly audit: AuditRepository,
-    private readonly orchestrator: CrawlerOrchestrator,
+    @Inject(forwardRef(() => CrawlerOrchestrator)) private readonly orchestrator: CrawlerOrchestrator,
     @Inject(CLOCK_TOKEN) private readonly clock: Clock,
   ) {}
 
