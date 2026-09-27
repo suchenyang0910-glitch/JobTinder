@@ -217,8 +217,12 @@ export class CrawlerSchedulerService {
         actorId: null,
         validateLive: false,
       });
+      const directoryResult = await this.discovery.discoverFromDirectoryPages(
+        this.builtinEnterpriseDirectoryUrls(),
+        { actorId: null, notifyAdmin: true, maxCandidates: 100 },
+      );
       this.logger.log(
-        `Discovery cron: discovered=${r.discovered.length} duplicates=${r.duplicates} validationErrors=${r.validationErrors} notified=${r.notified}`,
+        `Discovery cron: seed=${r.discovered.length} directory=${directoryResult.discovered.length} duplicates=${r.duplicates + directoryResult.duplicates} validationErrors=${r.validationErrors + directoryResult.validationErrors} notified=${r.notified + directoryResult.notified}`,
       );
     } catch (e) {
       this.logger.error(
@@ -279,6 +283,14 @@ export class CrawlerSchedulerService {
       },
     ];
     return rows;
+  }
+
+  builtinEnterpriseDirectoryUrls(): string[] {
+    return [
+      'https://www.ccdkh.org.kh/members',
+      'https://canchamcambodia.org/membership/directory',
+      'https://khmersme.gov.kh/directory',
+    ];
   }
 
   @Cron(APP_ENV.CRAWLER_REVIEW_NOTIFY_CRON || '0 */20 * * * *', {

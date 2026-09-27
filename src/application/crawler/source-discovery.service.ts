@@ -13,6 +13,8 @@ import {
 import { CrawlerReviewNotifierService } from './crawler-review-notifier.service';
 import { type SourceType } from '@src/domain/crawler/source-review-status-machine';
 import { APP_ENV } from '@src/shared/env/app-env';
+import { safeHttpFetch } from '@src/infrastructure/remote/remote-http-client';
+import { JOB_PAGE_BODY_KEYWORDS } from '@src/infrastructure/crawler/source-verifier';
 
 export interface DiscoveredCompanyInput {
   name: string;
@@ -67,6 +69,55 @@ export class SourceDiscoveryService {
     return `${clean}${CANONICAL_JOBS_SUFFIXES[0] ?? '/careers'}`;
   }
 
+  /** Parse public business-directory pages into website candidates. The
+   * directory itself is never registered as a company source. */
+  async discoverFromDirectoryPages(
+    directoryUrls: string[],
+    opts: { actorId?: bigint | null; notifyAdmin?: boolean; maxCandidates?: number } = {},
+  ): Promise<DiscoverResult> {
+    const candidates: DiscoveredCompanyInput[] = [];
+    const seen = new Set<string>();
+    for (const directoryUrl of directoryUrls) {
+      const res = await safeHttpFetch(directoryUrl, {
+        method: 'GET',
+        timeoutMs: 15000,
+        accept: 'text/html,application/xhtml+xml;q=0.9,*/*;q=0.5',
+      });
+      if (!res.ok || !res.text) continue;
+      const directoryHost = new URL(directoryUrl).hostname.replace(/^www\./, '').toLowerCase();
+      const anchorRe = /<a\b[^>]*href=["']([^"']+)["'][^>]*>([\s\S]*?)<\/a>/gi;
+      let match: RegExpExecArray | null;
+      while ((match = anchorRe.exec(res.text)) && candidates.length < (opts.maxCandidates ?? 100)) {
+        const href = (match[1] ?? '').trim();
+        const label = stripMarkup(match[2] ?? '');
+        if (!label || label.length < 2 || !/^https?:\/\//i.test(href)) continue;
+        let u: URL;
+        try {
+          u = new URL(href, directoryUrl);
+        } catch {
+          continue;
+        }
+        const host = u.hostname.replace(/^www\./, '').toLowerCase();
+        if (!host || host === directoryHost || host.includes('facebook.com') || host.includes('linkedin.com')) continue;
+        if (seen.has(host)) continue;
+        seen.add(host);
+        candidates.push({
+          name: label.slice(0, 256),
+          base_url: `${u.protocol}//${u.host}`,
+          jobs_url: null,
+          discovery_method: 'directory_website_extraction',
+          discovery_url: directoryUrl,
+          source_type: 'OFFICIAL_COMPANY_WEBSITE',
+        });
+      }
+    }
+    return this.discoverFromCandidates(candidates, {
+      actorId: opts.actorId,
+      notifyAdmin: opts.notifyAdmin,
+      validateLive: true,
+    });
+  }
+
   async discoverFromCandidates(
     candidates: DiscoveredCompanyInput[],
     opts: { actorId?: bigint | null; notifyAdmin?: boolean; validateLive?: boolean } = {},
@@ -106,7 +157,8 @@ export class SourceDiscoveryService {
           jobsUrl = parseAndValidateSourceUrl(jobsNorm, APP_ENV.ALLOW_NON_HTTPS_SOURCES);
           validateSameHost(baseUrl, jobsUrl);
         } else {
-          const suggested = this.suggestJobsSuffix(baseUrl);
+          const discoveredJobs = await this.findJobsUrl(baseUrl);
+          const suggested = discoveredJobs ?? this.suggestJobsSuffix(baseUrl);
           jobsNorm = normalizeSourceUrl(suggested);
           jobsUrl = parseAndValidateSourceUrl(jobsNorm, APP_ENV.ALLOW_NON_HTTPS_SOURCES);
         }
@@ -225,4 +277,24 @@ export class SourceDiscoveryService {
 
     return result;
   }
+
+  private async findJobsUrl(baseUrl: URL): Promise<string | null> {
+    const clean = baseUrl.toString().replace(/\/+$/, '');
+    for (const suffix of CANONICAL_JOBS_SUFFIXES) {
+      const url = `${clean}${suffix}`;
+      const res = await safeHttpFetch(url, {
+        method: 'GET',
+        timeoutMs: 5000,
+        accept: 'text/html,application/xhtml+xml;q=0.9,*/*;q=0.5',
+      });
+      if (res.status >= 200 && res.status < 400 && res.text && JOB_PAGE_BODY_KEYWORDS.test(res.text)) {
+        return url;
+      }
+    }
+    return null;
+  }
+}
+
+function stripMarkup(value: string): string {
+  return value.replace(/<[^>]+>/g, ' ').replace(/&nbsp;/gi, ' ').replace(/\s+/g, ' ').trim();
 }
