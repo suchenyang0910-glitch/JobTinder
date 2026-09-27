@@ -8,6 +8,7 @@ import { Clock, CLOCK_TOKEN } from '@src/shared/clock/clock';
 import { APP_ENV } from '@src/shared/env/app-env';
 import type { OutboxStatus } from '@prisma/client';
 import { CrawlerReviewNotifierService } from './crawler-review-notifier.service';
+import { CrawlerReviewService } from './crawler-review.service';
 import { SourceDiscoveryService, type DiscoveredCompanyInput } from './source-discovery.service';
 import { OpsStatsService } from '@src/application/ops/ops-stats.service';
 import {
@@ -37,6 +38,7 @@ export class CrawlerSchedulerService {
     private readonly audit: AuditRepository,
     @Inject(CLOCK_TOKEN) private readonly clock: Clock,
     @Optional() private readonly notifier?: CrawlerReviewNotifierService,
+    @Optional() private readonly review?: CrawlerReviewService,
     @Optional() private readonly discovery?: SourceDiscoveryService,
     @Optional() private readonly opsStats?: OpsStatsService,
     @Optional() private readonly remoteSync?: RemoteSourceSyncOrchestratorService,
@@ -120,6 +122,35 @@ export class CrawlerSchedulerService {
         now,
       });
       stats = await this.orchestrator.runSource(sourceId);
+      if (APP_ENV.CRAWLER_AUTO_PUBLISH_APPROVED_SOURCES && this.review) {
+        const eligible = await this.prisma.crawl_jobs_staging.findMany({
+          where: {
+            source_id: sourceId,
+            status: 'QA_PENDING',
+            qa_status: 'PASSED',
+            published_job_id: null,
+          },
+          select: { id: true },
+          orderBy: { id: 'asc' },
+          take: 100,
+        });
+        let published = 0;
+        for (const row of eligible) {
+          try {
+            await this.review.approve(row.id, null);
+            published++;
+          } catch (e) {
+            this.logger.warn(
+              `Trusted-source auto-publish skipped staging=${String(row.id)}: ${e instanceof Error ? e.message : String(e)}`,
+            );
+          }
+        }
+        if (eligible.length > 0) {
+          this.logger.log(
+            `Trusted-source auto-publish: source=${String(sourceId)} published=${published} skipped=${eligible.length - published}`,
+          );
+        }
+      }
       await this.notifier?.notifyPendingJobs(sourceId);
       if (stats.errorCount > 0) finalStatus = 'FAILED';
     } catch (e) {

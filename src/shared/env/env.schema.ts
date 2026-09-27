@@ -36,6 +36,7 @@ export const AppEnvSchema = z.object({
   OUTBOX_WORKER_MAX_ATTEMPTS: z.coerce.number().int().min(1).max(100).default(8),
 
   CRAWLER_ENABLED: z.coerce.boolean().default(false),
+  CRAWLER_AUTO_PUBLISH_APPROVED_SOURCES: z.coerce.boolean().default(false),
   CRAWLER_CRON_EXPRESSION: z.string().default('0 */15 * * * *'),
   CRAWLER_DISCOVERY_CRON: z.string().default('0 0 8 * * *'),
   CRAWLER_REVIEW_NOTIFY_CRON: z.string().default('0 */20 * * * *'),
