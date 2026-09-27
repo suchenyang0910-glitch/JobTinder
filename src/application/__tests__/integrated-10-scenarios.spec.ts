@@ -24,7 +24,12 @@ type FakePrisma = {
   $transaction: <T>(fn: (tx: FakePrisma) => Promise<T>) => Promise<T>;
   candidate_profiles: {
     findFirst: (p: { where?: AnyRow; orderBy?: AnyRow; select?: AnyRow }) => Promise<AnyRow | null>;
-    findMany: (p: { where?: AnyRow; select?: AnyRow; take?: number; orderBy?: AnyRow }) => Promise<AnyRow[]>;
+    findMany: (p: {
+      where?: AnyRow;
+      select?: AnyRow;
+      take?: number;
+      orderBy?: AnyRow;
+    }) => Promise<AnyRow[]>;
   };
   companies_members: {
     findFirst: (p: { where?: AnyRow; include?: AnyRow; select?: AnyRow }) => Promise<AnyRow | null>;
@@ -50,7 +55,12 @@ type FakePrisma = {
   };
   job_applications: {
     findUnique: (p: { where: AnyRow }) => Promise<AnyRow | null>;
-    findMany: (p: { where?: AnyRow; take?: number; orderBy?: AnyRow; skip?: number }) => Promise<AnyRow[]>;
+    findMany: (p: {
+      where?: AnyRow;
+      take?: number;
+      orderBy?: AnyRow;
+      skip?: number;
+    }) => Promise<AnyRow[]>;
     count: (p: { where: AnyRow }) => Promise<number>;
     create: (p: { data: AnyRow }) => Promise<AnyRow>;
     update: (p: { where: { id: bigint }; data: AnyRow }) => Promise<AnyRow>;
@@ -137,7 +147,7 @@ function makeFakePrisma(): FakePrisma {
           id: r.id,
           user_id: r.user_id,
           job_search_status: r.job_search_status,
-          user: { telegram_user_id: (db.users.get(r.user_id as bigint)?.telegram_user_id) ?? null },
+          user: { telegram_user_id: db.users.get(r.user_id as bigint)?.telegram_user_id ?? null },
         }));
       },
     },
@@ -231,8 +241,10 @@ function makeFakePrisma(): FakePrisma {
           .filter((r) => {
             if (w.candidate_id != null && r.candidate_id !== w.candidate_id) return false;
             if (w.status && r.status !== w.status) return false;
-            if (w.notified_at?.lte && new Date(r.notified_at as Date) > w.notified_at.lte) return false;
-            if (w.notified_at?.gte && new Date(r.notified_at as Date) < w.notified_at.gte) return false;
+            if (w.notified_at?.lte && new Date(r.notified_at as Date) > w.notified_at.lte)
+              return false;
+            if (w.notified_at?.gte && new Date(r.notified_at as Date) < w.notified_at.gte)
+              return false;
             if (w.reminded_at?.not === null && r.reminded_at == null) return false;
             if (
               w.reminded_at?.lte &&
@@ -283,12 +295,17 @@ function makeFakePrisma(): FakePrisma {
 
     job_applications: {
       findUnique: async ({ where }) => {
-        const w = where as { id?: bigint; application_cand_job_uq?: { candidate_id: bigint; job_id: bigint } };
+        const w = where as {
+          id?: bigint;
+          application_cand_job_uq?: { candidate_id: bigint; job_id: bigint };
+        };
         if (w.id != null) return db.job_applications.get(w.id) ?? null;
         const uq = w.application_cand_job_uq;
         if (uq) {
           const rows = Array.from(db.job_applications.values());
-          return rows.find((r) => r.candidate_id === uq.candidate_id && r.job_id === uq.job_id) ?? null;
+          return (
+            rows.find((r) => r.candidate_id === uq.candidate_id && r.job_id === uq.job_id) ?? null
+          );
         }
         return null;
       },
@@ -309,11 +326,9 @@ function makeFakePrisma(): FakePrisma {
             rows = rows.filter((r) => r.next_follow_up_at != null);
           }
           if (w.next_follow_up_at.lte) {
-            const cutoff = w.next_follow_up_at.lte as Date;
+            const cutoff = w.next_follow_up_at.lte;
             rows = rows.filter(
-              (r) =>
-                r.next_follow_up_at != null &&
-                new Date(r.next_follow_up_at as Date) <= cutoff,
+              (r) => r.next_follow_up_at != null && new Date(r.next_follow_up_at as Date) <= cutoff,
             );
           }
         }
@@ -492,11 +507,7 @@ function seedJob(
   return jobId;
 }
 
-function seedAuditEvent(
-  prisma: FakePrisma,
-  action: string,
-  metadata: Record<string, unknown>,
-) {
+function seedAuditEvent(prisma: FakePrisma, action: string, metadata: Record<string, unknown>) {
   const id = ++_auditEventId;
   prisma.db.audit_events.set(id, {
     id,
@@ -596,12 +607,7 @@ describe('10 Integrated Scenarios (FakePrisma Map + FakeClock)', () => {
     );
 
     const hm = new HardMatchService(prisma as never, audit as never, clock);
-    const digest = new RemoteDailyDigestService(
-      prisma as never,
-      audit as never,
-      hm,
-      clock,
-    );
+    const digest = new RemoteDailyDigestService(prisma as never, audit as never, hm, clock);
 
     const r1 = await digest.runDailyDigest({ candidateLimit: 10, dryRun: true });
     expect(r1.processedCandidates).toBe(1);
@@ -761,23 +767,24 @@ describe('10 Integrated Scenarios (FakePrisma Map + FakeClock)', () => {
     expect(candInt.status).toBe('ACCEPTED');
     expect(compInt.status).toBe('ACCEPTED');
 
-    const auditHit = audit.records.find(
-      (r) => r.action === AuditActionEnum.MATCH_CONTACT_OPENED,
-    );
+    const auditHit = audit.records.find((r) => r.action === AuditActionEnum.MATCH_CONTACT_OPENED);
     expect(auditHit).toBeDefined();
     expect(auditHit!.objectType).toBe('matches');
     expect(auditHit!.objectId).toBe(r2.matchId!);
-    expect((auditHit!.metadata as Record<string, unknown>).candidate_id).toBe(
-      String(candProfileId),
-    );
-    expect((auditHit!.metadata as Record<string, unknown>).job_id).toBe(String(jobId));
+    expect(auditHit!.metadata.candidate_id).toBe(String(candProfileId));
+    expect(auditHit!.metadata.job_id).toBe(String(jobId));
   });
 
   // ========== Scenario 7: NOT_ELIGIBLE 岗位打分 -1 → suggest() 过滤 ==========
   it('S7 eligibility_status=NOT_ELIGIBLE → 打分 -1，suggest() 结果中过滤掉', async () => {
     const { candProfileId } = seedCandidate(prisma);
     const { companyId } = seedCompany(prisma);
-    seedJob(prisma, companyId, { title: 'NormalJob', eligibility_status: 'CONFIRMED' }, 'PUBLISHED');
+    seedJob(
+      prisma,
+      companyId,
+      { title: 'NormalJob', eligibility_status: 'CONFIRMED' },
+      'PUBLISHED',
+    );
     seedJob(
       prisma,
       companyId,

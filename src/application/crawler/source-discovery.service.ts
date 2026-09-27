@@ -98,7 +98,13 @@ export class SourceDiscoveryService {
           continue;
         }
         const host = u.hostname.replace(/^www\./, '').toLowerCase();
-        if (!host || host === directoryHost || host.includes('facebook.com') || host.includes('linkedin.com')) continue;
+        if (
+          !host ||
+          host === directoryHost ||
+          host.includes('facebook.com') ||
+          host.includes('linkedin.com')
+        )
+          continue;
         if (seen.has(host)) continue;
         seen.add(host);
         candidates.push({
@@ -287,7 +293,12 @@ export class SourceDiscoveryService {
         timeoutMs: 5000,
         accept: 'text/html,application/xhtml+xml;q=0.9,*/*;q=0.5',
       });
-      if (res.status >= 200 && res.status < 400 && res.text && JOB_PAGE_BODY_KEYWORDS.test(res.text)) {
+      if (
+        res.status >= 200 &&
+        res.status < 400 &&
+        res.text &&
+        JOB_PAGE_BODY_KEYWORDS.test(res.text)
+      ) {
         return url;
       }
     }
@@ -296,5 +307,9 @@ export class SourceDiscoveryService {
 }
 
 function stripMarkup(value: string): string {
-  return value.replace(/<[^>]+>/g, ' ').replace(/&nbsp;/gi, ' ').replace(/\s+/g, ' ').trim();
+  return value
+    .replace(/<[^>]+>/g, ' ')
+    .replace(/&nbsp;/gi, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
 }

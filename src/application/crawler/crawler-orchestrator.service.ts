@@ -1,4 +1,4 @@
-import { Inject, Injectable, Logger } from '@nestjs/common';
+import { forwardRef, Inject, Injectable, Logger, Optional } from '@nestjs/common';
 import type { Prisma, CrawlQAStatus, CrawlJobStatus, CrawlTranslationStatus } from '@prisma/client';
 import { PrismaService } from '@src/infrastructure/db/prisma/prisma.service';
 import { AuditRepository } from '@src/infrastructure/db/repositories/audit.repository';
@@ -25,6 +25,8 @@ import { AppErrorCode } from '@src/shared/errors/app-error-code';
 import { Clock, CLOCK_TOKEN } from '@src/shared/clock/clock';
 import type { AILanguage } from '@src/domain/trust/ai-extract-provider';
 import { AIExtractProvider, AI_PROVIDER_TOKEN } from '@src/domain/trust/ai-extract-provider';
+import { APP_ENV } from '@src/shared/env/app-env';
+import { CrawlerReviewService } from './crawler-review.service';
 
 const PARSE_VERSION = 'parse-1.0';
 
@@ -50,6 +52,7 @@ export class CrawlerOrchestrator {
     private readonly qa: CrawlerQAService,
     @Inject(CLOCK_TOKEN) private readonly clock: Clock,
     @Inject(AI_PROVIDER_TOKEN) private readonly aiProvider: AIExtractProvider,
+    @Optional() @Inject(forwardRef(() => CrawlerReviewService)) private readonly review?: CrawlerReviewService,
   ) {}
 
   async runSource(sourceId: bigint): Promise<CrawlRunStats> {
@@ -741,7 +744,126 @@ export class CrawlerOrchestrator {
         updated_at: now,
       },
     });
+
+    if (APP_ENV.CRAWLER_AUTO_PUBLISH_APPROVED_SOURCES && this.review) {
+      try {
+        await this.tryAutoPublishApproved(row, nextStatus, qaStatusDb, stagingId, now);
+      } catch (e) {
+        this.logger.warn(
+          `auto publish skip (staging=${String(stagingId)}): ${e instanceof Error ? e.message : String(e)}`,
+        );
+      }
+    }
+
     return { row: updated, requiresReview: aggregated.requiresReview };
+  }
+
+  private async tryAutoPublishApproved(
+    row: unknown,
+    nextStatus: CrawlJobStatusValue,
+    qaStatusDb: CrawlQAStatus,
+    stagingId: bigint,
+    now: Date,
+  ): Promise<void> {
+    const staging = row as {
+      work_mode?: string | null;
+      source?: { review_status?: string | null; enabled?: boolean | null } | null;
+      source_id?: bigint | number | null;
+      source_job_id?: string | null;
+      translation_status?: CrawlTranslationStatus | string | null;
+      qa_flags?: string[] | null;
+    };
+    if (nextStatus !== 'QA_PENDING') {
+      await this.audit.record({
+        action: AuditActionEnum.CRAWL_AUTO_PUBLISH_SKIPPED,
+        objectType: 'crawl_jobs_staging',
+        objectId: stagingId,
+        metadata: { reason: `next_status=${nextStatus}` },
+        now,
+      });
+      return;
+    }
+    if (qaStatusDb !== 'PASSED') {
+      await this.audit.record({
+        action: AuditActionEnum.CRAWL_AUTO_PUBLISH_SKIPPED,
+        objectType: 'crawl_jobs_staging',
+        objectId: stagingId,
+        metadata: { reason: `qa_status=${qaStatusDb}` },
+        now,
+      });
+      return;
+    }
+    if (staging.work_mode === 'REMOTE') {
+      await this.audit.record({
+        action: AuditActionEnum.CRAWL_AUTO_PUBLISH_SKIPPED,
+        objectType: 'crawl_jobs_staging',
+        objectId: stagingId,
+        metadata: { reason: 'remote_requires_manual_approval' },
+        now,
+      });
+      return;
+    }
+    const src = staging.source;
+    if (!src) {
+      await this.audit.record({
+        action: AuditActionEnum.CRAWL_AUTO_PUBLISH_SKIPPED,
+        objectType: 'crawl_jobs_staging',
+        objectId: stagingId,
+        metadata: { reason: 'missing_source_record' },
+        now,
+      });
+      return;
+    }
+    if (src.review_status !== 'APPROVED') {
+      await this.audit.record({
+        action: AuditActionEnum.CRAWL_AUTO_PUBLISH_SKIPPED,
+        objectType: 'crawl_jobs_staging',
+        objectId: stagingId,
+        metadata: { reason: `source_review_status=${String(src.review_status)}` },
+        now,
+      });
+      return;
+    }
+    if (!src.enabled) {
+      await this.audit.record({
+        action: AuditActionEnum.CRAWL_AUTO_PUBLISH_SKIPPED,
+        objectType: 'crawl_jobs_staging',
+        objectId: stagingId,
+        metadata: { reason: 'source_not_enabled' },
+        now,
+      });
+      return;
+    }
+    const translationStatus = staging.translation_status as CrawlTranslationStatus | null;
+    if (
+      translationStatus === 'FAILED' ||
+      translationStatus === null ||
+      translationStatus === 'NOT_STARTED'
+    ) {
+      await this.audit.record({
+        action: AuditActionEnum.CRAWL_AUTO_PUBLISH_SKIPPED,
+        objectType: 'crawl_jobs_staging',
+        objectId: stagingId,
+        metadata: { reason: `translation_status=${String(translationStatus ?? 'NULL')}` },
+        now,
+      });
+      return;
+    }
+
+    await this.audit.record({
+      action: AuditActionEnum.CRAWL_AUTO_PUBLISH_TRIGGERED,
+      objectType: 'crawl_jobs_staging',
+      objectId: stagingId,
+      metadata: {
+        source_id: String(staging.source_id ?? 'NULL'),
+        source_job_id: staging.source_job_id ?? null,
+        translation_status: String(staging.translation_status ?? 'NULL'),
+        qa_flags: (staging.qa_flags ?? []).join(','),
+      },
+      now,
+    });
+
+    await this.review!.approve(stagingId, null);
   }
 
   private async markStaleBySourceJobId(sourceId: bigint, sourceJobId: string) {

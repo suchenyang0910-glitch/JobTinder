@@ -79,8 +79,9 @@ export function parseRssItems(xmlText: string): RssItem[] {
   const read = (body: string, names: string[]): string | null => {
     for (const name of names) {
       const tag = name.replace(/^.*:/, '');
-      const m = new RegExp(`<${name}(?:\\s[^>]*)?>([\\s\\S]*?)</${name}>`, 'i').exec(body)
-        ?? new RegExp(`<${tag}(?:\\s[^>]*)?>([\\s\\S]*?)</${tag}>`, 'i').exec(body);
+      const m =
+        new RegExp(`<${name}(?:\\s[^>]*)?>([\\s\\S]*?)</${name}>`, 'i').exec(body) ??
+        new RegExp(`<${tag}(?:\\s[^>]*)?>([\\s\\S]*?)</${tag}>`, 'i').exec(body);
       if (m?.[1]) return decode(m[1]);
     }
     return null;
@@ -105,7 +106,13 @@ export function parseRssItems(xmlText: string): RssItem[] {
     let child: RegExpExecArray | null;
     while ((child = childRe.exec(body))) {
       const key = (child[1] ?? '').toLowerCase();
-      if (!key || ['title', 'link', 'guid', 'pubdate', 'description', 'category', 'content:encoded'].includes(key)) continue;
+      if (
+        !key ||
+        ['title', 'link', 'guid', 'pubdate', 'description', 'category', 'content:encoded'].includes(
+          key,
+        )
+      )
+        continue;
       const value = decode(child[2] ?? '');
       if (!value) continue;
       const old = extra[key];
@@ -284,9 +291,16 @@ export function fetchRemoteOkRssJobs(opts?: { feedUrl?: string; timeoutMs?: numb
       const rows = JSON.parse(api.text) as Array<Record<string, unknown>>;
       const fetchedAt = new Date();
       const jobs = rows
-        .filter((row) => (typeof row.id === 'number' || typeof row.id === 'string') && typeof row.position === 'string')
+        .filter(
+          (row) =>
+            (typeof row.id === 'number' || typeof row.id === 'string') &&
+            typeof row.position === 'string',
+        )
         .map((row) => {
-          const url = typeof row.url === 'string' ? row.url : `https://remoteok.com/remote-jobs/${String(row.id)}`;
+          const url =
+            typeof row.url === 'string'
+              ? row.url
+              : `https://remoteok.com/remote-jobs/${String(row.id)}`;
           const tags = Array.isArray(row.tags) ? row.tags.map(String) : [];
           const location = typeof row.location === 'string' ? row.location : null;
           return {
@@ -301,9 +315,10 @@ export function fetchRemoteOkRssJobs(opts?: { feedUrl?: string; timeoutMs?: numb
             salaryMinRaw: null,
             salaryMaxRaw: null,
             salaryCurrency: null,
-            salaryTextRaw: typeof row.salary_min === 'number' || typeof row.salary_max === 'number'
-              ? `${String(row.salary_min ?? '')}-${String(row.salary_max ?? '')}`
-              : null,
+            salaryTextRaw:
+              typeof row.salary_min === 'number' || typeof row.salary_max === 'number'
+                ? `${String(row.salary_min ?? '')}-${String(row.salary_max ?? '')}`
+                : null,
             tags,
             categories: tags,
             locations: location ? [location] : [],
@@ -325,7 +340,15 @@ export function fetchRemoteOkRssJobs(opts?: { feedUrl?: string; timeoutMs?: numb
             rawPayload: row,
           } satisfies RemoteRawJob;
         });
-      return { ...rss, ok: true, errorCode: null, errorMessage: null, httpStatus: api.status, jobs, xml: null };
+      return {
+        ...rss,
+        ok: true,
+        errorCode: null,
+        errorMessage: null,
+        httpStatus: api.status,
+        jobs,
+        xml: null,
+      };
     } catch {
       return rss;
     }

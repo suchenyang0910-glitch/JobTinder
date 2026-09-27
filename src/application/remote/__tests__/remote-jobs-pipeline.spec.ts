@@ -351,7 +351,9 @@ describe('Remote Jobs Pipeline (11 UTs, FakePrisma Map + FakeClock, 0 new deps)'
     expect(res.duplicatesByUrl).toBe(0);
     expect(res.duplicatesByPlatformJob).toBe(1);
     expect(res.duplicatesByCompanyTitle).toBe(0);
-    expect(res.kept[0]!.idempotencyPlatformJobKey).toBe('remote:platform:REMOTIVE:remotive:dup-555');
+    expect(res.kept[0]!.idempotencyPlatformJobKey).toBe(
+      'remote:platform:REMOTIVE:remotive:dup-555',
+    );
   });
 
   it('UT7: 公司+标题哈希去重 → 规范化 company+title 相同，URL 和 platformJobKey 都不同，仍按 companyTitle 丢弃', () => {

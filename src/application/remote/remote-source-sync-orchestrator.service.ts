@@ -35,11 +35,7 @@ import { Inject } from '@nestjs/common';
 import { createHash } from 'node:crypto';
 
 export type RemoteSourceName =
-  | 'remotive_api'
-  | 'remotive_rss'
-  | 'remote_ok_rss'
-  | 'we_work_remotely_rss'
-  | 'jobicy_rss';
+  'remotive_api' | 'remotive_rss' | 'remote_ok_rss' | 'we_work_remotely_rss' | 'jobicy_rss';
 
 const SOURCE_META: Record<
   RemoteSourceName,
@@ -133,7 +129,13 @@ export class RemoteSourceSyncOrchestratorService {
   }): Promise<RemoteSyncReport> {
     const sources =
       opts?.sources ??
-      (['remotive_api', 'remotive_rss', 'remote_ok_rss', 'we_work_remotely_rss', 'jobicy_rss'] as RemoteSourceName[]);
+      ([
+        'remotive_api',
+        'remotive_rss',
+        'remote_ok_rss',
+        'we_work_remotely_rss',
+        'jobicy_rss',
+      ] as RemoteSourceName[]);
     const startedAt = this.clock.now();
     const allRaw: RemoteRawJob[] = [];
     const fetchResults: RemoteSourceFetchResult[] = [];
