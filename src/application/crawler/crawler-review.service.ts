@@ -25,7 +25,8 @@ export class CrawlerReviewService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly audit: AuditRepository,
-    @Inject(forwardRef(() => CrawlerOrchestrator)) private readonly orchestrator: CrawlerOrchestrator,
+    @Inject(forwardRef(() => CrawlerOrchestrator))
+    private readonly orchestrator: CrawlerOrchestrator,
     @Inject(CLOCK_TOKEN) private readonly clock: Clock,
   ) {}
 
@@ -52,6 +53,12 @@ export class CrawlerReviewService {
         code: AppErrorCode.CRAWL_STAGING_NOT_FOUND,
         message: `staging ${String(stagingId)} not found`,
       });
+
+    // Telegram buttons can be delivered more than once. A published staging
+    // row is already the successful result, so make repeated approval safe.
+    if (staging.status === 'PUBLISHED' && staging.published_job_id) {
+      return { jobId: staging.published_job_id, stagingId };
+    }
 
     const from = staging.status;
     if (from !== 'APPROVED') {

@@ -1020,7 +1020,7 @@ export class TelegramBotService implements OnModuleInit, OnModuleDestroy {
     if (!rawId) return;
     const id = BigInt(rawId);
     const action = m[1] as 'approve' | 'reject' | 'defer' | 'retranslate';
-    await ctx.answerCallbackQuery();
+    await ctx.answerCallbackQuery().catch(() => undefined);
     if (action === 'approve') {
       const result = await this.crawlerReview.approve(id, this.requireUserId(ctx));
       await ctx
@@ -1065,7 +1065,7 @@ export class TelegramBotService implements OnModuleInit, OnModuleDestroy {
     if (!rawId) return;
     const id = BigInt(rawId);
     const action = m[1] as 'approve' | 'reject' | 'defer' | 'suspend';
-    await ctx.answerCallbackQuery();
+    await ctx.answerCallbackQuery().catch(() => undefined);
     if (action === 'approve') {
       await this.sourceReview.approve(id, this.requireUserId(ctx), 'Telegram admin approval');
       await ctx
