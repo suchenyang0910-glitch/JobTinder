@@ -1,5 +1,13 @@
-import { forwardRef, Inject, Injectable, Logger, Optional } from '@nestjs/common';
-import type { Prisma, CrawlQAStatus, CrawlJobStatus, CrawlTranslationStatus } from '@prisma/client';
+import { Inject, Injectable, Logger } from '@nestjs/common';
+import type {
+  Prisma,
+  CrawlQAStatus,
+  CrawlJobStatus as _CrawlJobStatus,
+  CrawlTranslationStatus,
+  JobSourceType,
+  JobStatus,
+  SalaryStatus,
+} from '@prisma/client';
 import { PrismaService } from '@src/infrastructure/db/prisma/prisma.service';
 import { AuditRepository } from '@src/infrastructure/db/repositories/audit.repository';
 import {
@@ -10,7 +18,7 @@ import type { DetectedLanguage, ParsedStagingJobFields } from '@src/domain/crawl
 import {
   StaticHttpCrawler,
   PARSER_VERSION,
-  USER_AGENT,
+  USER_AGENT as _USER_AGENT,
   type FetchResult,
 } from '@src/infrastructure/crawler/static-http-crawler';
 import { CrawlerTranslationService } from '@src/infrastructure/ai/crawler-translation.service';
@@ -26,7 +34,6 @@ import { Clock, CLOCK_TOKEN } from '@src/shared/clock/clock';
 import type { AILanguage } from '@src/domain/trust/ai-extract-provider';
 import { AIExtractProvider, AI_PROVIDER_TOKEN } from '@src/domain/trust/ai-extract-provider';
 import { APP_ENV } from '@src/shared/env/app-env';
-import { CrawlerReviewService } from './crawler-review.service';
 
 const PARSE_VERSION = 'parse-1.0';
 
@@ -52,7 +59,6 @@ export class CrawlerOrchestrator {
     private readonly qa: CrawlerQAService,
     @Inject(CLOCK_TOKEN) private readonly clock: Clock,
     @Inject(AI_PROVIDER_TOKEN) private readonly aiProvider: AIExtractProvider,
-    @Optional() @Inject(forwardRef(() => CrawlerReviewService)) private readonly review?: CrawlerReviewService,
   ) {}
 
   async runSource(sourceId: bigint): Promise<CrawlRunStats> {
@@ -745,7 +751,7 @@ export class CrawlerOrchestrator {
       },
     });
 
-    if (APP_ENV.CRAWLER_AUTO_PUBLISH_APPROVED_SOURCES && this.review) {
+    if (APP_ENV.CRAWLER_AUTO_PUBLISH_APPROVED_SOURCES) {
       try {
         await this.tryAutoPublishApproved(row, nextStatus, qaStatusDb, stagingId, now);
       } catch (e) {
@@ -770,8 +776,16 @@ export class CrawlerOrchestrator {
       source?: { review_status?: string | null; enabled?: boolean | null } | null;
       source_id?: bigint | number | null;
       source_job_id?: string | null;
-      translation_status?: CrawlTranslationStatus | string | null;
+      translation_status?: CrawlTranslationStatus | null;
       qa_flags?: string[] | null;
+      company_id?: bigint | number | null;
+      detected_language?: string | null;
+      salary_source?: string | null;
+      title_source?: string | null;
+      parse_version?: string | null;
+      source_url?: string | null;
+      industry_source?: string | null;
+      status?: CrawlJobStatusValue | null;
     };
     if (nextStatus !== 'QA_PENDING') {
       await this.audit.record({
@@ -863,7 +877,174 @@ export class CrawlerOrchestrator {
       now,
     });
 
-    await this.review!.approve(stagingId, null);
+    await this.autoPublishDirectApprove(
+      stagingId,
+      staging as unknown as {
+        source?: { company_id?: bigint | number | null } | null;
+        source_job_id?: string | null;
+        source_url?: string | null;
+        parse_version?: string | null;
+        title_source?: string | null;
+        industry_source?: string | null;
+        salary_source?: string | null;
+        detected_language?: string | null;
+        status?: CrawlJobStatusValue | null;
+        source_id?: bigint | number | null;
+      },
+      now,
+    );
+  }
+
+  private async autoPublishDirectApprove(
+    stagingId: bigint,
+    staging: {
+      source?: { company_id?: bigint | number | null } | null;
+      source_job_id?: string | null;
+      source_url?: string | null;
+      parse_version?: string | null;
+      title_source?: string | null;
+      industry_source?: string | null;
+      salary_source?: string | null;
+      detected_language?: string | null;
+      status?: CrawlJobStatusValue | null;
+      source_id?: bigint | number | null;
+    },
+    now: Date,
+  ): Promise<void> {
+    const full = await this.prisma.crawl_jobs_staging.findUnique({
+      where: { id: stagingId },
+      include: { source: true, job_translations: true },
+    });
+    if (!full) {
+      throw new AppError({
+        code: AppErrorCode.CRAWL_STAGING_NOT_FOUND,
+        message: `staging ${String(stagingId)} not found for auto-publish`,
+      });
+    }
+    const from = full.status;
+    if (from !== 'APPROVED') {
+      assertCrawlJobTransition(from, 'APPROVED');
+    }
+    const originalLang = (full.detected_language as 'km' | 'en' | 'zh_CN' | 'unknown') ?? 'en';
+    const originalTrans =
+      full.job_translations.find(
+        (t) => t.language === (originalLang === 'unknown' ? 'en' : originalLang),
+      ) ?? full.job_translations[0];
+    if (!originalTrans) {
+      throw new AppError({
+        code: AppErrorCode.CRAWL_TRANSLATION_FAILED,
+        message: `No translations for auto-publish staging ${String(stagingId)}`,
+      });
+    }
+    const salaryProvided = Boolean(
+      full.salary_source &&
+      full.salary_source.trim().length > 0 &&
+      !/面议|negotiable|ចរចា|to be discussed/i.test(full.salary_source),
+    );
+    const salaryStatus: SalaryStatus = salaryProvided ? 'PROVIDED' : 'NOT_PROVIDED';
+    const salaryText = full.salary_source ?? null;
+    const titleNonNull = originalTrans.title || full.title_source;
+    if (!titleNonNull) {
+      throw new AppError({
+        code: AppErrorCode.CRAWL_QA_FAILED,
+        message: `Auto-publish missing title staging ${String(stagingId)}`,
+      });
+    }
+    const idemKey = `crawl-publish:${String(stagingId)}:${full.parse_version ?? 'v0'}`;
+
+    await this.prisma.$transaction(async (tx) => {
+      if (from !== 'APPROVED') {
+        await tx.crawl_jobs_staging.update({
+          where: { id: stagingId },
+          data: { status: 'APPROVED', updated_at: now },
+        });
+      }
+      const jobUpsert: Prisma.jobsUpsertArgs = {
+        where: {
+          job_source_uq: {
+            source_job_id: full.source_job_id,
+            source_type: 'EXTERNAL' as JobSourceType,
+          },
+        },
+        create: {
+          company_id: full.source?.company_id ?? null,
+          source_type: 'EXTERNAL' as JobSourceType,
+          source_url: full.source_url,
+          source_job_id: full.source_job_id,
+          idempotency_key: idemKey,
+          title: titleNonNull.slice(0, 512),
+          industry: originalTrans.industry ?? full.industry_source ?? null,
+          skills: originalTrans.skills ?? [],
+          tasks: originalTrans.tasks ?? [],
+          locations: originalTrans.locations ?? [],
+          languages_required: [],
+          shifts: originalTrans.shifts ?? [],
+          salary_status: salaryStatus,
+          salary_text: salaryText,
+          original_published_at: now,
+          last_checked_at: now,
+          status: 'ACTIVE_EXTERNAL' as JobStatus,
+          version: 1,
+        },
+        update: {
+          company_id: full.source?.company_id ?? null,
+          source_url: full.source_url,
+          idempotency_key: idemKey,
+          title: titleNonNull.slice(0, 512),
+          industry: originalTrans.industry ?? full.industry_source ?? null,
+          skills: originalTrans.skills ?? [],
+          tasks: originalTrans.tasks ?? [],
+          locations: originalTrans.locations ?? [],
+          shifts: originalTrans.shifts ?? [],
+          salary_status: salaryStatus,
+          salary_text: salaryText,
+          last_checked_at: now,
+          status: 'ACTIVE_EXTERNAL' as JobStatus,
+          version: { increment: 1 },
+        },
+      };
+      const job = await tx.jobs.upsert(jobUpsert);
+      await tx.crawl_jobs_staging.update({
+        where: { id: stagingId },
+        data: { published_job_id: job.id, status: 'PUBLISHED', updated_at: now },
+      });
+      await tx.job_translations.updateMany({
+        where: { staging_job_id: stagingId },
+        data: { qa_status: 'PASSED', review_status: 'PASSED', updated_at: now },
+      });
+      await this.audit.record(
+        {
+          action: AuditActionEnum.CRAWL_REVIEW_APPROVED,
+          objectType: 'crawl_jobs_staging',
+          objectId: stagingId,
+          actorId: undefined,
+          metadata: {
+            source_id: full.source_id,
+            source_job_id: full.source_job_id,
+            job_id: String(job.id),
+            auto: 'true',
+          },
+          now,
+        },
+        tx,
+      );
+      await this.audit.record(
+        {
+          action: AuditActionEnum.CRAWL_JOB_PUBLISHED,
+          objectType: 'jobs',
+          objectId: job.id,
+          actorId: undefined,
+          metadata: {
+            source_id: full.source_id,
+            source_job_id: full.source_job_id,
+            staging_job_id: String(stagingId),
+            auto: 'true',
+          },
+          now,
+        },
+        tx,
+      );
+    });
   }
 
   private async markStaleBySourceJobId(sourceId: bigint, sourceJobId: string) {

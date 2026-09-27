@@ -284,13 +284,14 @@ export class RemoteSourceSyncOrchestratorService {
         },
         jobs: r.jobs,
       };
-    } catch (err: any) {
+    } catch (err: unknown) {
+      const e = err as { code?: string; message?: string };
       return {
         result: {
           source: name,
           ok: false,
-          errorCode: (err && err.code) || 'UNEXPECTED_ERROR',
-          errorMessage: (err && err.message) || String(err),
+          errorCode: (e && e.code) || 'UNEXPECTED_ERROR',
+          errorMessage: (e && e.message) || String(err),
           httpStatus: 0,
           rawFetched: 0,
         },

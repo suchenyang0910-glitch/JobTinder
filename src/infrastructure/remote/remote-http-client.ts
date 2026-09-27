@@ -49,10 +49,11 @@ export async function safeHttpFetch(
       errorMessage: null,
       headers,
     };
-  } catch (err: any) {
+  } catch (err: unknown) {
     clearTimeout(t);
-    const code = err && err.name === 'AbortError' ? 'TIMEOUT' : (err && err.code) || 'FETCH_ERROR';
-    const msg = (err && err.message) || String(err);
+    const e = err as { name?: string; code?: string; message?: string };
+    const code = e && e.name === 'AbortError' ? 'TIMEOUT' : (e && e.code) || 'FETCH_ERROR';
+    const msg = (e && e.message) || String(err);
     return {
       ok: false,
       status: 0,

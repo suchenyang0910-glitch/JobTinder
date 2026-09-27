@@ -49,7 +49,7 @@ function asList(v: unknown): string[] {
   if (typeof v === 'string') {
     if (!v.trim()) return [];
     return v
-      .split(/[,;|\/]+/)
+      .split(/[,;|/]+/)
       .map((s) => s.trim())
       .filter(Boolean);
   }
@@ -161,11 +161,12 @@ export async function fetchRemotiveApiJobs(opts?: {
   let parsed: RemotiveApiResponse | null = null;
   try {
     parsed = JSON.parse(res.text) as RemotiveApiResponse;
-  } catch (err: any) {
+  } catch (err: unknown) {
+    const e = err as { message?: string };
     return {
       ok: false,
       errorCode: 'PARSE_ERROR',
-      errorMessage: (err && err.message) || String(err),
+      errorMessage: (e && e.message) || String(err),
       httpStatus: res.status,
       jobs: [],
       rawResponse: null,
