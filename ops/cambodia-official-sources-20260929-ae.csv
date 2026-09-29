@@ -1,4 +1,3 @@
 name,base_url,jobs_url,source_type,parser_type,city,industry,discovery_method
-CPL Cambodia Properties Limited,https://www.cplagent.com,https://www.cplagent.com/WebsiteCareers,OFFICIAL_COMPANY_WEBSITE,PLAYWRIGHT,Phnom Penh Siem Reap and Sihanoukville,Real Estate and Property Services,official_careers_audit_20260929_v
-Petram Design International Cambodia,https://petram-intl.com,https://petram-intl.com/jobs,OFFICIAL_COMPANY_WEBSITE,PLAYWRIGHT,Phnom Penh,Architecture and Engineering,official_careers_audit_20260929_v
-NongHyup Finance Cambodia,https://www.nhfinance.com.kh,https://www.nhfinance.com.kh/career,OFFICIAL_COMPANY_WEBSITE,PLAYWRIGHT,Phnom Penh and Provinces,Microfinance,official_careers_audit_20260929_v
+INNOTALITY Corporation Cambodia,https://innotality.com,https://innotality.com/career/,OFFICIAL_COMPANY_WEBSITE,STATIC_HTML,Siem Reap and Phnom Penh,Hospitality and Tourism,official_careers_search_20260929
+Daiichi Life Insurance Cambodia,https://dai-ichilife.com.kh,https://dai-ichilife.com.kh/pages/careers/,OFFICIAL_COMPANY_WEBSITE,STATIC_HTML,Phnom Penh and Provinces,Insurance,official_careers_search_20260929
