@@ -1,4 +1,2 @@
 name,base_url,jobs_url,source_type,parser_type,city,industry,discovery_method
-Baby Elephant Boutique Hotel Cambodia,https://babyelephant.asia,https://babyelephant.asia/employment-opportunities,OFFICIAL_COMPANY_WEBSITE,PLAYWRIGHT,Siem Reap,Hospitality,official_careers_audit_20260929_w
-Angkor Miracle Resort and Spa,https://angkormiracle.com,https://angkormiracle.com/career.html,OFFICIAL_COMPANY_WEBSITE,PLAYWRIGHT,Siem Reap,Hospitality,official_careers_audit_20260929_w
-Royal Angkor Resort and Spa,https://www.royalangkorresort.com,https://www.royalangkorresort.com/careers.html,OFFICIAL_COMPANY_WEBSITE,PLAYWRIGHT,Siem Reap,Hospitality,official_careers_audit_20260929_w
+MekongNet Cambodia,https://mekongnet.com.kh,https://mekongnet.com.kh/join-us,OFFICIAL_COMPANY_WEBSITE,STATIC_HTML,Phnom Penh and Provinces,Telecommunications and Internet,official_careers_search_20260929
