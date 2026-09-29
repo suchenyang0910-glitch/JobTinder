@@ -1,0 +1,4 @@
+name,base_url,jobs_url,source_type,parser_type,city,industry,discovery_method
+OMC Cambodia,https://www.omc.com.kh,https://www.omc.com.kh/careers,OFFICIAL_COMPANY_WEBSITE,STATIC_HTML,Phnom Penh,Professional Services,official_careers_batch_20260929_d
+CAMMA Microfinance,https://www.camma.com.kh,https://www.camma.com.kh/job/,OFFICIAL_COMPANY_WEBSITE,STATIC_HTML,Phnom Penh,Microfinance,official_careers_batch_20260929_d
+Sathapana Bank,https://www.sathapana.com.kh,https://www.sathapana.com.kh/en/career,OFFICIAL_COMPANY_WEBSITE,STATIC_HTML,Phnom Penh,Banking,official_careers_batch_20260929_d
