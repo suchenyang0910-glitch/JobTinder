@@ -1,0 +1,5 @@
+name,base_url,jobs_url,source_type,parser_type,city,industry,discovery_method
+First Cambodia,https://www.firstcambodia.com.kh,https://www.firstcambodia.com.kh/careers,OFFICIAL_COMPANY_WEBSITE,STATIC_HTML,Phnom Penh,Information Technology,official_careers_audit_20260929_t
+Skills Development Fund Cambodia,https://sdfcambodia.org,https://sdfcambodia.org/career/,OFFICIAL_COMPANY_WEBSITE,STATIC_HTML,Phnom Penh,Education and Workforce Development,official_careers_audit_20260929_t
+Chalatex Cambodia,https://chalatex.com,https://chalatex.com/opportunities/,OFFICIAL_COMPANY_WEBSITE,STATIC_HTML,Phnom Penh,Agritech,official_careers_audit_20260929_t
+Meng Brothers Engineering Cambodia,https://mengbrothers.com,https://mengbrothers.com/careers,OFFICIAL_COMPANY_WEBSITE,STATIC_HTML,Phnom Penh,Engineering and Energy,official_careers_audit_20260929_t
