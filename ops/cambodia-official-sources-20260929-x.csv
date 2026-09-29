@@ -1,0 +1,4 @@
+name,base_url,jobs_url,source_type,parser_type,city,industry,discovery_method
+Kintetsu World Express Cambodia,https://www.kwe.com,https://www.kwe.com/local/cambodia/en/careers/,OFFICIAL_COMPANY_WEBSITE,STATIC_HTML,Phnom Penh and Sihanoukville,Logistics and Customs,official_careers_audit_20260929_o
+LDI Enterprise Cambodia,https://ldienterprise.com,https://ldienterprise.com/careers.php,OFFICIAL_COMPANY_WEBSITE,STATIC_HTML,Phnom Penh and Siem Reap,Distribution and Investment,official_careers_audit_20260929_o
+Angkor Hospital for Children,https://angkorhospital.org,https://angkorhospital.org/jobs/,OFFICIAL_COMPANY_WEBSITE,STATIC_HTML,Siem Reap,Healthcare,official_careers_audit_20260929_o
