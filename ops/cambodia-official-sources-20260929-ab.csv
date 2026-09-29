@@ -1,4 +1,4 @@
 name,base_url,jobs_url,source_type,parser_type,city,industry,discovery_method
-Maersk Cambodia,https://www.maersk.com,https://maersk.wd3.myworkdayjobs.com/en-US/Maersk_Careers,OFFICIAL_COMPANY_WEBSITE,PLAYWRIGHT,Phnom Penh,Logistics and Supply Chain,official_careers_audit_20260929_s
+Maersk Cambodia,https://maersk.wd3.myworkdayjobs.com,https://maersk.wd3.myworkdayjobs.com/en-US/Maersk_Careers,OFFICIAL_COMPANY_WEBSITE,PLAYWRIGHT,Phnom Penh,Logistics and Supply Chain,official_careers_audit_20260929_s
 Wyndham Grand Phnom Penh Capital,https://www.wyndhamgrandphnompenhcapital.com,https://www.wyndhamgrandphnompenhcapital.com/en/careers,OFFICIAL_COMPANY_WEBSITE,PLAYWRIGHT,Phnom Penh,Hospitality,official_careers_audit_20260929_s
-Raffles Hotel Le Royal Phnom Penh,https://www.accor.com,https://careers.accor.com/global/en/job/reservation-agent-in-raffles-hotel-le-royal-phnom-penh-cambodia-jid-87553,OFFICIAL_COMPANY_WEBSITE,PLAYWRIGHT,Phnom Penh,Hospitality,official_careers_audit_20260929_s
+Raffles Hotel Le Royal Phnom Penh,https://careers.accor.com,https://careers.accor.com/global/en/job/reservation-agent-in-raffles-hotel-le-royal-phnom-penh-cambodia-jid-87553,OFFICIAL_COMPANY_WEBSITE,PLAYWRIGHT,Phnom Penh,Hospitality,official_careers_audit_20260929_s
