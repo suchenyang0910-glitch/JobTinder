@@ -105,7 +105,7 @@ export class CrawlerReviewNotifierService {
     const rows = await this.prisma.crawl_jobs_staging.findMany({
       where: {
         ...(sourceId ? { source_id: sourceId } : {}),
-        status: 'QA_PENDING',
+        status: { in: ['QA_PENDING', 'REVIEW_REQUIRED', 'DEFERRED'] },
         review_notified_at: null,
       },
       orderBy: { id: 'asc' },

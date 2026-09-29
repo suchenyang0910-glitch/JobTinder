@@ -488,7 +488,7 @@ describe('自动来源发现 + 未核验岗位审批（6 UT）', () => {
         source_job_id: 'X1',
         source_url: 'https://s.co.kh/careers/x1',
         title_source: 'Developer',
-        status: 'QA_PENDING',
+        status: 'REVIEW_REQUIRED',
         qa_status: 'PASSED',
         translation_status: 'DONE',
         salary_source: '',
