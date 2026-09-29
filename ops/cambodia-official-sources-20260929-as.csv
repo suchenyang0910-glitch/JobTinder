@@ -1,0 +1,6 @@
+name,base_url,jobs_url,source_type,parser_type,city,industry,discovery_method
+Alpha Commercial Bank Cambodia,https://www.alphabank.com.kh,https://www.alphabank.com.kh/en/pages/career,OFFICIAL_COMPANY_WEBSITE,PLAYWRIGHT,Phnom Penh,Banking,official_careers_search_20260929
+PEDRO Cambodia,https://pedroshoes.com.kh,https://pedroshoes.com.kh/pages/career,OFFICIAL_COMPANY_WEBSITE,STATIC_HTML,Phnom Penh,Retail and Footwear,official_careers_search_20260929
+Cambodian Public Bank,https://www.cpbebank.com,https://www.cpbebank.com/personal-banking/about-us/career-with-us/,OFFICIAL_COMPANY_WEBSITE,PLAYWRIGHT,Phnom Penh,Banking,official_careers_search_20260929
+Teach For Cambodia,https://www.teachforcambodia.org,https://www.teachforcambodia.org/career-opportunities/,OFFICIAL_COMPANY_WEBSITE,STATIC_HTML,Phnom Penh,Education and Nonprofit,official_careers_search_20260929
+ITS Cambodia,https://www.itsc-cambodia.com,https://www.itsc-cambodia.com/careers/,OFFICIAL_COMPANY_WEBSITE,STATIC_HTML,Phnom Penh,Education and Professional Services,official_careers_search_20260929
