@@ -1,0 +1,8 @@
+name,base_url,jobs_url,source_type,parser_type,city,industry,discovery_method
+PACTICS Cambodia,https://pactics.com,https://pactics.com/jobs/,OFFICIAL_COMPANY_WEBSITE,STATIC_HTML,Siem Reap,Manufacturing,official_careers_audit_20260929_h
+DENSO Cambodia,https://www.denso.com,https://www.denso.com/kh/en/,OFFICIAL_COMPANY_WEBSITE,STATIC_HTML,Phnom Penh,Automotive Manufacturing,official_careers_audit_20260929_h
+HEINEKEN Cambodia,https://careers.theheinekencompany.com,https://careers.theheinekencompany.com/Cambodia/,OFFICIAL_COMPANY_WEBSITE,STATIC_HTML,Phnom Penh,Beverage Manufacturing,official_careers_audit_20260929_h
+Mee Chiet,https://www.meechiet.com.kh,https://www.meechiet.com.kh/careers,OFFICIAL_COMPANY_WEBSITE,STATIC_HTML,Phnom Penh,Food and Beverage,official_careers_audit_20260929_h
+U-PAY Cambodia,https://www.u-pay.com,https://www.u-pay.com/career/,OFFICIAL_COMPANY_WEBSITE,STATIC_HTML,Phnom Penh,Payments and Fintech,official_careers_audit_20260929_h
+KDSB Bank,https://www.kdsb.com.kh,https://www.kdsb.com.kh/kh/careers,OFFICIAL_COMPANY_WEBSITE,STATIC_HTML,Phnom Penh,Banking,official_careers_audit_20260929_h
+Goodhill Enterprise Cambodia,https://www.goodhill.com.kh,https://www.goodhill.com.kh/career/,OFFICIAL_COMPANY_WEBSITE,STATIC_HTML,Phnom Penh and Provinces,Distribution and FMCG,official_careers_audit_20260929_h
