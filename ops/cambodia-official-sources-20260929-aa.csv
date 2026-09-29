@@ -1,0 +1,6 @@
+name,base_url,jobs_url,source_type,parser_type,city,industry,discovery_method
+Bridge Bank Cambodia,https://www.bridgebank.com.kh,https://www.bridgebank.com.kh/en/careers/,OFFICIAL_COMPANY_WEBSITE,STATIC_HTML,Phnom Penh,Banking,official_careers_audit_20260929_r
+ATFX Cambodia,https://www.atfx.com.kh,https://www.atfx.com.kh/en/about-us/join-our-team,OFFICIAL_COMPANY_WEBSITE,STATIC_HTML,Phnom Penh,Financial Services,official_careers_audit_20260929_r
+International Community School Cambodia,https://www.ics.edu.kh,https://www.ics.edu.kh/jobs,OFFICIAL_COMPANY_WEBSITE,STATIC_HTML,Phnom Penh,Education,official_careers_audit_20260929_r
+TrueHome Cambodia,https://truehomect.com.kh,https://truehomect.com.kh/career,OFFICIAL_COMPANY_WEBSITE,STATIC_HTML,Phnom Penh,Technology and Services,official_careers_audit_20260929_r
+AGI Cambodia,https://agi.com.kh,https://agi.com.kh/careers,OFFICIAL_COMPANY_WEBSITE,STATIC_HTML,Phnom Penh,Technology,official_careers_audit_20260929_r
