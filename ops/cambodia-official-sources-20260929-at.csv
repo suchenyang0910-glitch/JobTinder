@@ -1,0 +1,3 @@
+name,base_url,jobs_url,source_type,parser_type,city,industry,discovery_method
+TELNET Cambodia,https://telnet.com.kh,https://telnet.com.kh/careers/,OFFICIAL_COMPANY_WEBSITE,STATIC_HTML,Phnom Penh and Bavet,Telecommunications and ISP,official_careers_search_20260929
+Buymed Cambodia,https://buymed.com.kh,https://career.buymed.com.kh/jobs/,OFFICIAL_COMPANY_WEBSITE,PLAYWRIGHT,Phnom Penh,Healthcare E-commerce and Logistics,official_careers_search_20260929
