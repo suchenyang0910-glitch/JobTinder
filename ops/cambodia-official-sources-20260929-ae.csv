@@ -1,4 +1,6 @@
 name,base_url,jobs_url,source_type,parser_type,city,industry,discovery_method
-SINET Cambodia,https://www.sinet.com.kh,https://www.sinet.com.kh/about-us/careers/,OFFICIAL_COMPANY_WEBSITE,STATIC_HTML,Phnom Penh,Telecommunications and Internet,official_careers_audit_20260929_v
-AMK Bank Cambodia,https://amkcambodia.com,https://amkcambodia.com/careers/,OFFICIAL_COMPANY_WEBSITE,STATIC_HTML,Phnom Penh,Banking and Microfinance,official_careers_audit_20260929_v
-Oriental Bank Cambodia,https://www.orientalbank.com.kh,https://www.orientalbank.com.kh/about-us/careers,OFFICIAL_COMPANY_WEBSITE,STATIC_HTML,Phnom Penh,Banking,official_careers_audit_20260929_v
+University of Cambodia,https://uc.edu.kh,https://uc.edu.kh/ucb/job/12/2468,OFFICIAL_COMPANY_WEBSITE,STATIC_HTML,Phnom Penh,Higher Education,official_careers_audit_20260929_v
+Footprints International School Cambodia,https://footprintsschool.edu.kh,https://footprintsschool.edu.kh/join-the-team,OFFICIAL_COMPANY_WEBSITE,STATIC_HTML,Phnom Penh,Education,official_careers_audit_20260929_v
+International Community School Cambodia,https://www.ics.edu.kh,https://www.ics.edu.kh/jobs,OFFICIAL_COMPANY_WEBSITE,STATIC_HTML,Phnom Penh,Education,official_careers_audit_20260929_v
+Paññāsāstra University of Cambodia,https://www.puc.edu.kh,https://www.puc.edu.kh/careers,OFFICIAL_COMPANY_WEBSITE,STATIC_HTML,Phnom Penh,Higher Education,official_careers_audit_20260929_v
+NIRA International School Cambodia,https://niraisc.edu.kh,https://niraisc.edu.kh/careers,OFFICIAL_COMPANY_WEBSITE,STATIC_HTML,Phnom Penh,Education,official_careers_audit_20260929_v
