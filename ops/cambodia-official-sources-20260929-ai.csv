@@ -1,0 +1,3 @@
+name,base_url,jobs_url,source_type,parser_type,city,industry,discovery_method
+Wuerth Cambodia,https://www.wuerth.com.kh,https://www.wuerth.com.kh/,OFFICIAL_COMPANY_WEBSITE,STATIC_HTML,Phnom Penh,Industrial Distribution,official_careers_search_20260929
+CE&P Corporation Cambodia,https://cenpcorp.com.kh,https://cenpcorp.com.kh/career/,OFFICIAL_COMPANY_WEBSITE,STATIC_HTML,Phnom Penh,Engineering and Construction,official_careers_search_20260929
