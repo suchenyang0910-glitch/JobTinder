@@ -1,0 +1,8 @@
+name,base_url,jobs_url,source_type,parser_type,city,industry,discovery_method
+ABA Bank Cambodia,https://www.ababank.com,https://careers.ababank.com/,OFFICIAL_COMPANY_WEBSITE,STATIC_HTML,Phnom Penh,Banking,official_careers_audit_20260929
+ACLEDA Bank,https://www.acledabank.com.kh,https://www.acledabank.com.kh/kh/eng/cr_careeropportunity,OFFICIAL_COMPANY_WEBSITE,STATIC_HTML,Phnom Penh,Banking,official_careers_audit_20260929
+Foreign Trade Bank of Cambodia (FTB),https://ftb.com.kh,https://ftb.oneworldsoftware.com/careers,OFFICIAL_COMPANY_WEBSITE,STATIC_HTML,Phnom Penh,Banking,official_careers_audit_20260929
+APS Cambodia,https://www.aps.com.kh,https://www.aps.com.kh/apply-career/careers/,OFFICIAL_COMPANY_WEBSITE,STATIC_HTML,Phnom Penh,Real Estate,official_careers_audit_20260929
+Chip Mong Group,https://careers.chipmong.com,https://careers.chipmong.com/,OFFICIAL_COMPANY_WEBSITE,STATIC_HTML,Phnom Penh,Industry and Retail,official_careers_audit_20260929
+Chip Mong Bank,https://www.chipmongbank.com.kh,https://www.chipmongbank.com.kh/en/careers,OFFICIAL_COMPANY_WEBSITE,STATIC_HTML,Phnom Penh,Banking,official_careers_audit_20260929
+RMA Cambodia,https://www.rmac.com.kh,https://www.rmac.com.kh/jobs,OFFICIAL_COMPANY_WEBSITE,STATIC_HTML,Phnom Penh,Automotive and Services,official_careers_audit_20260929
