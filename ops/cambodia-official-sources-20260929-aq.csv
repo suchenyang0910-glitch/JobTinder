@@ -1,0 +1,2 @@
+name,base_url,jobs_url,source_type,parser_type,city,industry,discovery_method
+KOHNAN Cambodia,https://kohnan-kh.com,https://kohnan-kh.com/?page_id=9160,OFFICIAL_COMPANY_WEBSITE,PLAYWRIGHT,Phnom Penh,Retail,official-career-search
