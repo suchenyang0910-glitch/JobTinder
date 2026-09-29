@@ -1,3 +1,3 @@
 name,base_url,jobs_url,source_type,parser_type,city,industry,discovery_method
-Cambodian Standard Development and Supply (CSDS),https://www.csds-group.com,https://www.csds-group.com/,OFFICIAL_COMPANY_WEBSITE,STATIC_HTML,Phnom Penh,Agriculture and Food Supply Chain,official_careers_audit_20260929_w
-BSL Logistics Cambodia,https://www.bsllogs.com,https://www.bsllogs.com/careers,OFFICIAL_COMPANY_WEBSITE,STATIC_HTML,Phnom Penh,Logistics and Freight Forwarding,official_careers_audit_20260929_w
+E-Shop Cambodia,https://www.e-shopcambodia.com,https://www.e-shopcambodia.com/career,OFFICIAL_COMPANY_WEBSITE,STATIC_HTML,Phnom Penh,E-commerce Retail and Logistics,official_careers_audit_20260929_w
+Khema International Polyclinic Cambodia,https://khemahospital.com,https://khemahospital.com/about-us,OFFICIAL_COMPANY_WEBSITE,STATIC_HTML,Phnom Penh,Healthcare,official_company_audit_20260929_w
