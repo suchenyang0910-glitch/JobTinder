@@ -1,0 +1,3 @@
+name,base_url,jobs_url,source_type,parser_type,city,industry,discovery_method
+Provident Capital Cambodia,https://providentcapital.com.kh,https://providentcapital.com.kh/en/careers,OFFICIAL_COMPANY_WEBSITE,STATIC_HTML,Phnom Penh,Trust and Financial Services,official_careers_search_20260929
+ACLEDA Securities Cambodia,https://www.acledasecurities.com.kh,https://www.acledasecurities.com.kh/kh/eng/cr_careeropportunity,OFFICIAL_COMPANY_WEBSITE,STATIC_HTML,Phnom Penh,Securities and Financial Services,official_careers_search_20260929
