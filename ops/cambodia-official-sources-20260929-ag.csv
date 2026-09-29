@@ -1,4 +1,2 @@
 name,base_url,jobs_url,source_type,parser_type,city,industry,discovery_method
-Sokimex Investment Group Cambodia,https://skmig.com,https://skmig.com,OFFICIAL_COMPANY_WEBSITE,PLAYWRIGHT,Phnom Penh and Provinces,Energy Hospitality and Property,official_careers_audit_20260929_x
-Hong Seng Long Trading Cambodia,https://www.hsl-trading.com,https://www.hsl-trading.com,OFFICIAL_COMPANY_WEBSITE,PLAYWRIGHT,Phnom Penh,Consumer Goods Distribution,official_careers_audit_20260929_x
-The Community Travel Cambodia,https://www.thecommunitytravel.com,https://www.thecommunitytravel.com/jobs,OFFICIAL_COMPANY_WEBSITE,PLAYWRIGHT,Siem Reap,Hospitality and Tourism,official_careers_audit_20260929_x
+International Community School Cambodia,https://www.ics.edu.kh,https://www.ics.edu.kh/jobs,OFFICIAL_COMPANY_WEBSITE,STATIC_HTML,Phnom Penh,Education,official_careers_search_20260929
