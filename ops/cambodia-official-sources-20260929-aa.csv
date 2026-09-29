@@ -1,5 +1,7 @@
 name,base_url,jobs_url,source_type,parser_type,city,industry,discovery_method
-Ground Outsourcing Services Cambodia,https://gos-globe.com,https://gos-globe.com/careers,OFFICIAL_COMPANY_WEBSITE,STATIC_HTML,Phnom Penh,Airport Ground Services and Recruitment,official_careers_audit_20260929_r
-Hunter Group Cambodia,https://huntergroup.asia,https://huntergroup.asia/about/careers,OFFICIAL_COMPANY_WEBSITE,STATIC_HTML,Siem Reap,Real Estate Construction Manufacturing and Hospitality,official_careers_audit_20260929_r
-HubKore Cambodia,https://www.hubkore.com,https://www.hubkore.com/careers,OFFICIAL_COMPANY_WEBSITE,STATIC_HTML,Phnom Penh,Technology and Business Services,official_careers_audit_20260929_r
-Grab Cambodia,https://www.grab.careers,https://www.grab.careers/en/locations/cambodia,OFFICIAL_COMPANY_WEBSITE,PLAYWRIGHT,Phnom Penh and Siem Reap,Technology Mobility and Delivery,official_careers_audit_20260929_r
+Island Laboratoire Cambodia,https://islandlabo.com,https://islandlabo.com/careers,OFFICIAL_COMPANY_WEBSITE,PLAYWRIGHT,Phnom Penh,Pharmaceutical Manufacturing,official_careers_audit_20260929_r
+Optimal P Cambodia,https://www.optimal-p.com,https://www.optimal-p.com/jobs,OFFICIAL_COMPANY_WEBSITE,PLAYWRIGHT,Phnom Penh,Sales and Outsourcing,official_careers_audit_20260929_r
+Chailease Royal Cambodia,https://hr5871.chailease.com,https://hr5871.chailease.com/,OFFICIAL_COMPANY_WEBSITE,PLAYWRIGHT,Phnom Penh,Consumer Finance,official_careers_audit_20260929_r
+Angkor Milk Cambodia,https://angkormilk.com.kh,https://angkormilk.com.kh/careers,OFFICIAL_COMPANY_WEBSITE,PLAYWRIGHT,Phnom Penh,Food and Beverage Manufacturing,official_careers_audit_20260929_r
+WEduShare Cambodia,https://www.wedushare.com,https://www.wedushare.com/careers,OFFICIAL_COMPANY_WEBSITE,PLAYWRIGHT,Phnom Penh,Education and Training,official_careers_audit_20260929_r
+Digital Economy and Business Committee Cambodia,https://digitaleconomy.gov.kh,https://digitaleconomy.gov.kh/en/careers,OFFICIAL_COMPANY_WEBSITE,PLAYWRIGHT,Phnom Penh,Public Digital Services,official_careers_audit_20260929_r
