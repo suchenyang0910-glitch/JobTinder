@@ -1,0 +1,10 @@
+name,base_url,jobs_url,source_type,parser_type,city,industry,discovery_method
+MB Cambodia,https://www.mbcambodia.com,https://www.mbcambodia.com/en/careers,OFFICIAL_COMPANY_WEBSITE,STATIC_HTML,Phnom Penh,Banking,official_careers_batch_20260929_b
+Cathay United Bank Cambodia,https://www.cathaybk.com.kh,https://www.cathaybk.com.kh/careers/,OFFICIAL_COMPANY_WEBSITE,STATIC_HTML,Phnom Penh,Banking,official_careers_batch_20260929_b
+WOORI Bank Cambodia,https://www.wooribank.com.kh,https://www.wooribank.com.kh/careers/,OFFICIAL_COMPANY_WEBSITE,STATIC_HTML,Phnom Penh,Banking,official_careers_batch_20260929_b
+Ajinomoto Cambodia,https://ajinomoto.com.kh,https://ajinomoto.com.kh/career/,OFFICIAL_COMPANY_WEBSITE,STATIC_HTML,Phnom Penh,Manufacturing,official_careers_batch_20260929_b
+SME Bank of Cambodia,https://www.smebankcambodia.com.kh,https://www.smebankcambodia.com.kh/career/,OFFICIAL_COMPANY_WEBSITE,STATIC_HTML,Phnom Penh,Banking,official_careers_batch_20260929_b
+Delightech,https://delightech.com.kh,https://delightech.com.kh/en/careers,OFFICIAL_COMPANY_WEBSITE,STATIC_HTML,Phnom Penh,Fintech,official_careers_batch_20260929_b
+Pavilion Phnom Penh,https://www.thepavilion.asia,https://www.thepavilion.asia/careers/,OFFICIAL_COMPANY_WEBSITE,STATIC_HTML,Phnom Penh,Hospitality,official_careers_batch_20260929_b
+Hotel Cambodiana,https://hotelcambodiana.com.kh,https://hotelcambodiana.com.kh/careers/,OFFICIAL_COMPANY_WEBSITE,STATIC_HTML,Phnom Penh,Hospitality,official_careers_batch_20260929_b
+TK Central,https://www.tkcentral.com.kh,https://www.tkcentral.com.kh/careers,OFFICIAL_COMPANY_WEBSITE,STATIC_HTML,Phnom Penh,Real Estate,official_careers_batch_20260929_b
