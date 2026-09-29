@@ -84,7 +84,7 @@ export class CrawlerOrchestrator {
       return stats;
     }
     if (!source.enabled) return stats;
-    if (source.parser_type !== 'STATIC_HTML') {
+    if (source.parser_type !== 'STATIC_HTML' && source.parser_type !== 'FIRECRAWL') {
       throw new AppError({
         code: AppErrorCode.CRAWL_SOURCE_PARSER_NOT_IMPLEMENTED,
         message: `parser_type ${source.parser_type} is not implemented in stage-1`,
@@ -113,11 +113,9 @@ export class CrawlerOrchestrator {
       data: { robots_status: robots.allowed ? 'ALLOWED' : 'UNCHECKED', last_crawled_at: now },
     });
 
-    const index = await this.crawler.fetchPage({
-      sourceId,
-      url: source.jobs_url,
-      crawlDelayMs: robots.crawlDelayMs,
-    });
+    const index = source.parser_type === 'FIRECRAWL'
+      ? await this.crawler.fetchDynamicPage({ sourceId, url: source.jobs_url })
+      : await this.crawler.fetchPage({ sourceId, url: source.jobs_url, crawlDelayMs: robots.crawlDelayMs });
     if (index.errorCode) {
       stats.errorCount++;
       stats.lastError = `index fetch ${index.errorCode}: ${index.errorMessage ?? ''}`;
@@ -138,11 +136,9 @@ export class CrawlerOrchestrator {
       try {
         const sourceJobId = this.inferSourceJobId(url, source.base_url);
         seenSourceJobIdsThisRun.add(sourceJobId);
-        const result = await this.crawler.fetchPage({
-          sourceId,
-          url,
-          crawlDelayMs: robots.crawlDelayMs,
-        });
+        const result = source.parser_type === 'FIRECRAWL'
+          ? await this.crawler.fetchDynamicPage({ sourceId, url })
+          : await this.crawler.fetchPage({ sourceId, url, crawlDelayMs: robots.crawlDelayMs });
         const snapshot = await this.persistSnapshot(sourceId, result);
         if (result.errorCode) {
           if (result.httpStatus === 404 || result.httpStatus === 410) {

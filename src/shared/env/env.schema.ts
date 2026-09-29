@@ -54,6 +54,8 @@ export const AppEnvSchema = z.object({
   CRAWLER_REVIEW_ADMIN_USERNAME: z.string().default('Faxonlei'),
   CRAWLER_DAILY_PAGE_LIMIT_PER_SOURCE: z.coerce.number().int().min(1).max(10000).default(200),
   CRAWLER_REQUEST_TIMEOUT_MS: z.coerce.number().int().min(1000).max(300000).default(20000),
+  FIRECRAWL_BASE_URL: z.string().url().default('https://api.firecrawl.dev'),
+  FIRECRAWL_API_KEY: z.string().optional().or(z.literal('')),
   CRAWLER_MAX_RETRIES: z.coerce.number().int().min(0).max(10).default(2),
   CRAWLER_MIN_INTERVAL_MS: z.coerce.number().int().min(0).max(3600000).default(2000),
   CRAWLER_MAX_INTERVAL_MS: z.coerce.number().int().min(0).max(3600000).default(5000),

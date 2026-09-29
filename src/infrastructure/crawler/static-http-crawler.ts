@@ -236,6 +236,72 @@ export class StaticHttpCrawler {
     return this.buildErrorResult(url, 0, null, 'FETCH_ERROR', msg);
   }
 
+  /** Dynamic fallback for JS-rendered career pages. Firecrawl is optional; the
+   * source remains disabled until an API key is configured. */
+  async fetchDynamicPage(params: { sourceId: bigint; url: string }): Promise<FetchResult> {
+    const apiKey = APP_ENV.FIRECRAWL_API_KEY;
+    if (!apiKey) {
+      return this.buildErrorResult(
+        params.url,
+        0,
+        'application/json',
+        'FIRECRAWL_NOT_CONFIGURED',
+        'FIRECRAWL_API_KEY is not configured',
+      );
+    }
+    const ac = new AbortController();
+    const timer = setTimeout(() => ac.abort(), this.timeoutMs);
+    try {
+      const response = await fetch(`${APP_ENV.FIRECRAWL_BASE_URL.replace(/\/$/, '')}/v1/scrape`, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${apiKey}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ url: params.url, formats: ['html', 'markdown'], onlyMainContent: false }),
+        signal: ac.signal,
+      });
+      const payload = (await response.json().catch(() => null)) as
+        | { data?: { html?: string; rawHtml?: string; markdown?: string }; error?: string }
+        | null;
+      if (!response.ok) {
+        return this.buildErrorResult(
+          params.url,
+          response.status,
+          'application/json',
+          `FIRECRAWL_HTTP_${response.status}`,
+          payload?.error ?? `Firecrawl returned HTTP ${response.status}`,
+        );
+      }
+      const body = payload?.data?.html ?? payload?.data?.rawHtml ?? payload?.data?.markdown ?? '';
+      if (!body) {
+        return this.buildErrorResult(params.url, response.status, 'application/json', 'FIRECRAWL_EMPTY', 'Firecrawl returned no HTML or markdown');
+      }
+      return {
+        url: params.url,
+        httpStatus: response.status,
+        contentType: 'text/html',
+        body,
+        contentHash: StaticHttpCrawler.sha256Hex(body),
+        fetchedAt: new Date(),
+        errorCode: null,
+        errorMessage: null,
+        isDuplicate: false,
+        headers: null,
+      };
+    } catch (e) {
+      return this.buildErrorResult(
+        params.url,
+        0,
+        'application/json',
+        'FIRECRAWL_FETCH_ERROR',
+        e instanceof Error ? e.message : String(e),
+      );
+    } finally {
+      clearTimeout(timer);
+    }
+  }
+
   private buildErrorResult(
     url: string,
     httpStatus: number,
@@ -304,6 +370,16 @@ export class StaticHttpCrawler {
       if (seen.has(resolved)) continue;
       seen.add(resolved);
       out.push(resolved);
+    }
+    for (const m of html.matchAll(/\[[^\]]+\]\((https?:\/\/[^)\s]+|\/[^)\s]+)\)/gi)) {
+      try {
+        const resolved = new URL(m[1]!, baseUrl).toString();
+        const path = new URL(resolved).pathname;
+        if (/(^|\/)(jobs?|careers?|vacanc\w*|positions?|recruit(?:ment)?|employment)(?:[/?-]|$)/i.test(path) && !seen.has(resolved)) {
+          seen.add(resolved);
+          out.push(resolved);
+        }
+      } catch { /* ignore malformed markdown links */ }
     }
     return out.slice(0, APP_ENV.CRAWLER_DAILY_PAGE_LIMIT_PER_SOURCE);
   }
