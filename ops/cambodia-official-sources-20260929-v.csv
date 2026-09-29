@@ -1,0 +1,6 @@
+name,base_url,jobs_url,source_type,parser_type,city,industry,discovery_method
+Cambodia Chamber of Commerce Member Directory,https://www.ccc.org.kh,https://www.ccc.org.kh/en/member-directory,CHAMBER_DIRECTORY,STATIC_HTML,Cambodia,Multi-sector business directory,enterprise_directory_audit_20260929_m
+International Business Chamber of Cambodia Member Directory,https://ibccambodia.com,https://ibccambodia.com/members-directory/,CHAMBER_DIRECTORY,STATIC_HTML,Phnom Penh,Multi-sector business directory,enterprise_directory_audit_20260929_m
+AmCham Cambodia Membership Directory,https://amchamcambodia.net,https://amchamcambodia.net/become-a-member/membership-directory/,CHAMBER_DIRECTORY,STATIC_HTML,Cambodia,International business directory,enterprise_directory_audit_20260929_m
+Phnom Penh Club Member Directory,https://phnompenhclub.org,https://phnompenhclub.org/en/member-directory,CHAMBER_DIRECTORY,STATIC_HTML,Phnom Penh,Business and investment directory,enterprise_directory_audit_20260929_m
+CambodiaYP Business Directory,https://www.cambodiayp.com,https://www.cambodiayp.com/,CHAMBER_DIRECTORY,STATIC_HTML,Cambodia,Local business directory,enterprise_directory_audit_20260929_m
