@@ -1,5 +1,3 @@
 name,base_url,jobs_url,source_type,parser_type,city,industry,discovery_method
-Futaba Microfinance Cambodia,https://www.futabamfi.com.kh,https://www.futabamfi.com.kh/en/career,OFFICIAL_COMPANY_WEBSITE,STATIC_HTML,Phnom Penh and Kampong Speu,Microfinance,official_careers_audit_20260929_u
-Sahaka Microfinance Cambodia,https://sahakamfi.com.kh,https://sahakamfi.com.kh/careers,OFFICIAL_COMPANY_WEBSITE,STATIC_HTML,Phnom Penh,Microfinance,official_careers_audit_20260929_u
-Anakut Microfinance Cambodia,https://anakutmfi.com.kh,https://anakutmfi.com.kh/en/career,OFFICIAL_COMPANY_WEBSITE,STATIC_HTML,Phnom Penh,Microfinance,official_careers_audit_20260929_u
-Maxima Microfinance Cambodia,https://careers.maxima.com.kh,https://careers.maxima.com.kh/careers-en,OFFICIAL_COMPANY_WEBSITE,STATIC_HTML,Phnom Penh and Provinces,Microfinance,official_careers_audit_20260929_u
+KB PRASAC Bank Cambodia,https://www.kbprasacbank.com.kh,https://www.kbprasacbank.com.kh/en/careers/job-opportunity,OFFICIAL_COMPANY_WEBSITE,PLAYWRIGHT,Phnom Penh and Provinces,Banking,official_careers_audit_20260929_u
+Phillip General Insurance Cambodia,https://www.phillipinsurance.com.kh,https://www.phillipinsurance.com.kh/career,OFFICIAL_COMPANY_WEBSITE,PLAYWRIGHT,Phnom Penh,Insurance,official_careers_audit_20260929_u
