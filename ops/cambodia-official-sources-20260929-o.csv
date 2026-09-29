@@ -1,0 +1,11 @@
+name,base_url,jobs_url,source_type,parser_type,city,industry,discovery_method
+Parbury Cambodia,https://www.parbury.com.kh,https://www.parbury.com.kh/en/careers/,OFFICIAL_COMPANY_WEBSITE,STATIC_HTML,Phnom Penh,Real Estate and Construction,official_careers_audit_20260929_g
+Realestate.com.kh,https://realestate.com.kh,https://international.realestate.com.kh/km/careers/,OFFICIAL_COMPANY_WEBSITE,STATIC_HTML,Phnom Penh,Property Technology and Real Estate,official_careers_audit_20260929_g
+OCIC Group,https://www.ocic.com.kh,https://www.ocic.com.kh/careers,OFFICIAL_COMPANY_WEBSITE,STATIC_HTML,Phnom Penh,Construction and Real Estate,official_careers_audit_20260929_g
+Orkide Real Estate Development,https://orkide.com.kh,https://orkide.com.kh/job-list,OFFICIAL_COMPANY_WEBSITE,STATIC_HTML,Phnom Penh,Real Estate Development,official_careers_audit_20260929_g
+Peng Huoth Group,https://penghuothgroup.com,https://penghuothgroup.com/en/job-vacancy/,OFFICIAL_COMPANY_WEBSITE,STATIC_HTML,Phnom Penh,Real Estate and Retail,official_careers_audit_20260929_g
+CPTL Cambodia,https://cptl.com.kh,https://cptl.com.kh/HOME/career/,OFFICIAL_COMPANY_WEBSITE,STATIC_HTML,Phnom Penh,Energy and Infrastructure,official_careers_audit_20260929_g
+Grant Thornton Cambodia,https://www.grantthornton.com.kh,https://www.grantthornton.com.kh/en/careers/,OFFICIAL_COMPANY_WEBSITE,STATIC_HTML,Phnom Penh,Accounting and Advisory,official_careers_audit_20260929_g
+KPMG Cambodia,https://kpmg.com,https://kpmg.com/kh/en/careers.html,OFFICIAL_COMPANY_WEBSITE,STATIC_HTML,Phnom Penh,Accounting and Advisory,official_careers_audit_20260929_g
+EBM Cambodia,https://www.ebmcambodia.com,https://www.ebmcambodia.com/careers,OFFICIAL_COMPANY_WEBSITE,STATIC_HTML,Phnom Penh,Business Consulting,official_careers_audit_20260929_g
+Dynamic Group Cambodia,https://www.web1.dynamic.com.kh,https://www.web1.dynamic.com.kh/careers,OFFICIAL_COMPANY_WEBSITE,STATIC_HTML,Phnom Penh,Distribution and Services,official_careers_audit_20260929_g
