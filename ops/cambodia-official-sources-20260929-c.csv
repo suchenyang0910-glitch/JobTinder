@@ -1,0 +1,9 @@
+name,base_url,jobs_url,source_type,parser_type,city,industry,discovery_method
+NagaWorld,https://www.nagaworld.com,https://www.nagaworld.com/careers/,OFFICIAL_COMPANY_WEBSITE,STATIC_HTML,Phnom Penh,Hospitality,official_careers_batch_20260929_c
+One Fraternity,https://www.onefraternity.com.kh,https://www.onefraternity.com.kh/en/careers/,OFFICIAL_COMPANY_WEBSITE,STATIC_HTML,Phnom Penh,Manufacturing,official_careers_batch_20260929_c
+Y Chhe Group,https://www.ychhe.com.kh,https://www.ychhe.com.kh/careers,OFFICIAL_COMPANY_WEBSITE,STATIC_HTML,Phnom Penh,Construction,official_careers_batch_20260929_c
+Hellmann Worldwide Logistics Cambodia,https://careers.hellmann.com,https://careers.hellmann.com/en/cambodia,OFFICIAL_COMPANY_WEBSITE,STATIC_HTML,Phnom Penh,Logistics,official_careers_batch_20260929_c
+Rohto Mentholatum Cambodia,https://rohto.com.kh,https://rohto.com.kh/job-opportunity/index,OFFICIAL_COMPANY_WEBSITE,STATIC_HTML,Phnom Penh,Manufacturing,official_careers_batch_20260929_c
+Bell Foods Cambodia,https://bellfoods.com.kh,https://bellfoods.com.kh/careers/,OFFICIAL_COMPANY_WEBSITE,STATIC_HTML,Phnom Penh,Food Manufacturing,official_careers_batch_20260929_c
+Toyota Cambodia,https://www.toyota.com.kh,https://www.toyota.com.kh/en/careers.html,OFFICIAL_COMPANY_WEBSITE,STATIC_HTML,Phnom Penh,Automotive,official_careers_batch_20260929_c
+Da Houg Heng Enterprise,https://www.dahoughengenterprise.com,https://www.dahoughengenterprise.com/careers,OFFICIAL_COMPANY_WEBSITE,STATIC_HTML,Phnom Penh,Distribution,official_careers_batch_20260929_c
