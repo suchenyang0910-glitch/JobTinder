@@ -1,0 +1,6 @@
+name,base_url,jobs_url,source_type,parser_type,city,industry,discovery_method
+PPM Pharma,https://ppmpharma.com,https://ppmpharma.com/pages/production-vacancies,OFFICIAL_COMPANY_WEBSITE,STATIC_HTML,Phnom Penh,Pharmaceutical Manufacturing,official_careers_audit_20260929_b
+Sika Cambodia,https://khm.sika.com,https://khm.sika.com/en/About-us/career.html,OFFICIAL_COMPANY_WEBSITE,STATIC_HTML,Phnom Penh,Construction Chemicals,official_careers_audit_20260929_b
+Sambour Mining,https://sambourmining.com,https://sambourmining.com/en/careers/,OFFICIAL_COMPANY_WEBSITE,STATIC_HTML,Phnom Penh,Mining,official_careers_audit_20260929_b
+SOHO Diversified Group,https://www.soho.com.kh,https://www.soho.com.kh/careers/,OFFICIAL_COMPANY_WEBSITE,STATIC_HTML,Phnom Penh,Retail and Distribution,official_careers_audit_20260929_b
+Forval Cambodia,https://forvalcambodia-careers.com,https://forvalcambodia-careers.com/job-category/production/,OFFICIAL_COMPANY_WEBSITE,STATIC_HTML,Phnom Penh,Manufacturing Services,official_careers_audit_20260929_b
