@@ -1,0 +1,5 @@
+name,base_url,jobs_url,source_type,parser_type,city,industry,discovery_method
+Holiday Palace Sihanoukville,https://holidaypalace-shv.com,https://holidaypalace-shv.com/careers/,OFFICIAL_COMPANY_WEBSITE,STATIC_HTML,Sihanoukville,Hospitality,official_careers_audit_20260929_e
+Kompong Dewa Resort Sihanoukville,https://kompongdewa.com,https://kompongdewa.com/careers/,OFFICIAL_COMPANY_WEBSITE,STATIC_HTML,Sihanoukville,Hospitality and Real Estate,official_careers_audit_20260929_e
+TRIMULIA Hotel Sihanoukville,https://trimulia.com,https://trimulia.com/discover-your-path/,OFFICIAL_COMPANY_WEBSITE,STATIC_HTML,Sihanoukville,Hospitality,official_careers_audit_20260929_e
+Kuehne and Nagel Cambodia,https://www.kuehne-nagel.com,https://careers.kuehne-nagel.com/,OFFICIAL_COMPANY_WEBSITE,STATIC_HTML,Phnom Penh,Logistics,official_careers_audit_20260929_e
