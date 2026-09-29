@@ -1,3 +1,4 @@
 name,base_url,jobs_url,source_type,parser_type,city,industry,discovery_method
-KB PRASAC Bank Cambodia,https://www.kbprasacbank.com.kh,https://www.kbprasacbank.com.kh/en/careers/job-opportunity,OFFICIAL_COMPANY_WEBSITE,PLAYWRIGHT,Phnom Penh and Provinces,Banking,official_careers_audit_20260929_u
-Phillip General Insurance Cambodia,https://www.phillipinsurance.com.kh,https://www.phillipinsurance.com.kh/career,OFFICIAL_COMPANY_WEBSITE,PLAYWRIGHT,Phnom Penh,Insurance,official_careers_audit_20260929_u
+Bill24 Cambodia,https://bill24.io,https://bill24.io/en/career,OFFICIAL_COMPANY_WEBSITE,PLAYWRIGHT,Phnom Penh,Fintech and Payments,official_careers_search_20260929
+CAS-BIZ Technology Cambodia,https://cas.com.kh,https://cas.com.kh/company/careers/,OFFICIAL_COMPANY_WEBSITE,STATIC_HTML,Phnom Penh,Technology and Software,official_careers_search_20260929
+Dynamic Advanced Group Cambodia,https://dynamic.com.kh,https://dynamic.com.kh/careers,OFFICIAL_COMPANY_WEBSITE,STATIC_HTML,Phnom Penh,Healthcare Agriculture Construction,official_careers_search_20260929
