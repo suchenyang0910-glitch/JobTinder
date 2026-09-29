@@ -367,6 +367,7 @@ export class SourceReviewService {
 
   async approve(sourceId: bigint, actorId: bigint | null, reason?: string | null) {
     const row = await this.loadOrThrow(sourceId);
+    if (row.review_status === 'APPROVED' && row.enabled) return row;
     assertSourceReviewTransition(row.review_status, 'APPROVED');
     const now = this.clock.now();
     const updated = await this.prisma.source_registry.update({
