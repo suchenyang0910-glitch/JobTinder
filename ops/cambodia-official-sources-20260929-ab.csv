@@ -1,6 +1,3 @@
 name,base_url,jobs_url,source_type,parser_type,city,industry,discovery_method
-British American Tobacco Cambodia,https://www.bat-cambodia.com,https://www.bat-cambodia.com/,OFFICIAL_COMPANY_WEBSITE,STATIC_HTML,Phnom Penh,Consumer Goods,official_careers_audit_20260929_s
-CARE International Cambodia,https://care-cambodia.org,https://care-cambodia.org/about-us/careers/,OFFICIAL_COMPANY_WEBSITE,STATIC_HTML,Phnom Penh,International Development,official_careers_audit_20260929_s
-ISI Group Cambodia,https://www.isigroup.com.kh,https://www.isigroup.com.kh/careers,OFFICIAL_COMPANY_WEBSITE,STATIC_HTML,Phnom Penh,Construction and Building Materials,official_careers_audit_20260929_s
-SaiGon Plant Protection Cambodia,https://www.spccambodia.com,https://www.spccambodia.com/en/career/,OFFICIAL_COMPANY_WEBSITE,STATIC_HTML,Phnom Penh,Agriculture and Manufacturing,official_careers_audit_20260929_s
-Annam Group Cambodia,https://annam-group.com,https://annam-group.com/employment-information/,OFFICIAL_COMPANY_WEBSITE,STATIC_HTML,Phnom Penh,Food and Distribution,official_careers_audit_20260929_s
+Coastal City Development Group Cambodia,https://www.coastalcitygroup.net,https://www.coastalcitygroup.net/en/join.aspx?type=46,OFFICIAL_COMPANY_WEBSITE,STATIC_HTML,Koh Kong,Urban Development Tourism and Airport Operations,official_careers_audit_20260929_s
+Skill Bridge Solutions Cambodia,https://skillbridgesolus.com,https://skillbridgesolus.com/,OFFICIAL_COMPANY_WEBSITE,STATIC_HTML,Sihanoukville,Employment Placement and BPO Services,official_company_audit_20260929_s
