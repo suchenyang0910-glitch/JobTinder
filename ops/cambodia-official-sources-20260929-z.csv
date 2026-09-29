@@ -1,0 +1,4 @@
+name,base_url,jobs_url,source_type,parser_type,city,industry,discovery_method
+Royal Group Cambodia,https://www.royalgroup.com.kh,https://www.royalgroup.com.kh/contact-us,OFFICIAL_COMPANY_WEBSITE,STATIC_HTML,Phnom Penh,Investment and Telecommunications,official_careers_audit_20260929_q
+BIDC Bank Cambodia,https://www.bidc.com.kh,https://www.bidc.com.kh/en/careers,OFFICIAL_COMPANY_WEBSITE,STATIC_HTML,Phnom Penh,Banking,official_careers_audit_20260929_q
+PaiBloom,https://paibloom.co,https://paibloom.co/,OFFICIAL_COMPANY_WEBSITE,STATIC_HTML,Pailin,Food and Agritech,official_careers_audit_20260929_q
