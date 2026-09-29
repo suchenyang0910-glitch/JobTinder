@@ -1,0 +1,3 @@
+name,base_url,jobs_url,source_type,parser_type,city,industry,discovery_method
+Phare Ponleu Selpak,https://phareps.org,https://phareps.org/employment/,OFFICIAL_COMPANY_WEBSITE,STATIC_HTML,Battambang,Arts Education and Nonprofit,official_careers_audit_20260929_n
+Dewey International Cambodia,https://www.deweyinternational.com,https://www.deweyinternational.com/company/careers/,OFFICIAL_COMPANY_WEBSITE,STATIC_HTML,Battambang,Education,official_careers_audit_20260929_n
