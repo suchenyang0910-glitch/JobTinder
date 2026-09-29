@@ -1,0 +1,4 @@
+name,base_url,jobs_url,source_type,parser_type,city,industry,discovery_method
+CATS Cambodia,https://www.cats.com.kh,https://www.cats.com.kh/Career,OFFICIAL_COMPANY_WEBSITE,STATIC_HTML,Siem Reap,Automotive and Business Services,official_careers_audit_20260929_i
+Dai-ichi Life Insurance Cambodia,https://dai-ichilife.com.kh,https://dai-ichilife.com.kh/pages/careers/,OFFICIAL_COMPANY_WEBSITE,STATIC_HTML,Phnom Penh and Siem Reap,Insurance,official_careers_audit_20260929_i
+Urban Living Solutions Cambodia,https://www.urbanlivingsolutions.com,https://www.urbanlivingsolutions.com/jobssection,OFFICIAL_COMPANY_WEBSITE,STATIC_HTML,Phnom Penh,Real Estate and Urban Development,official_careers_audit_20260929_i
