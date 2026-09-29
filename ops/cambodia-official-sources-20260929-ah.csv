@@ -1,3 +1,2 @@
 name,base_url,jobs_url,source_type,parser_type,city,industry,discovery_method
-Prudential Cambodia,https://www.prudential.com.kh,https://www.prudential.com.kh/en/work-with-us/corporate-career,OFFICIAL_COMPANY_WEBSITE,PLAYWRIGHT,Phnom Penh,Insurance and Financial Services,official_careers_audit_20260929_y
-TotalEnergies Cambodia,https://kh.totalenergies.com,https://kh.totalenergies.com/en/who-we-are/careers,OFFICIAL_COMPANY_WEBSITE,STATIC_HTML,Phnom Penh,Energy and Retail,official_careers_audit_20260929_y
+Eco Agri Center Cambodia,https://eco-agri-center.com,https://eco-agri-center.com/career,OFFICIAL_COMPANY_WEBSITE,PLAYWRIGHT,Siem Reap and Kandal,Agriculture and Agribusiness,official_careers_audit_20260929_y
