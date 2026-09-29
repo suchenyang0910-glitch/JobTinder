@@ -1,0 +1,3 @@
+name,base_url,jobs_url,source_type,parser_type,city,industry,discovery_method
+University of Technology and Entrepreneurship Cambodia,https://www.ute.edu.kh,https://www.ute.edu.kh/careers/,OFFICIAL_COMPANY_WEBSITE,STATIC_HTML,Phnom Penh,Higher Education,official_careers_search_20260929
+Royal School of Administration Cambodia,https://hr.era.gov.kh,https://hr.era.gov.kh/careers.html,OFFICIAL_COMPANY_WEBSITE,PLAYWRIGHT,Phnom Penh,Public Administration Education,official_careers_search_20260929
