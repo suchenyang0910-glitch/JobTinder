@@ -1,0 +1,3 @@
+name,base_url,jobs_url,source_type,parser_type,city,industry,discovery_method
+KIMMEX Cambodia,https://kimmex.com.kh,https://kimmex.com.kh/careers?lang=en,OFFICIAL_COMPANY_WEBSITE,PLAYWRIGHT,Phnom Penh,Construction,official-career-search
+CMED Construction Cambodia,https://cmedconstruction.com,https://cmedconstruction.com/en/join-us,OFFICIAL_COMPANY_WEBSITE,PLAYWRIGHT,Phnom Penh,Construction,official-career-search
