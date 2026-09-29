@@ -1,0 +1,4 @@
+name,base_url,jobs_url,source_type,parser_type,city,industry,discovery_method
+Berkeley International School Cambodia,https://www.bischool.edu.kh,https://www.bischool.edu.kh/en/work-at-berkeley,OFFICIAL_COMPANY_WEBSITE,STATIC_HTML,Phnom Penh,Education,official-career-search
+Australian International School Phnom Penh,https://aispp.edu.kh,https://aispp.edu.kh/careers/,OFFICIAL_COMPANY_WEBSITE,STATIC_HTML,Phnom Penh,Education,official-career-search
+Southbridge International School Cambodia,https://www.sisc.edu.kh,https://www.sisc.edu.kh/careers/,OFFICIAL_COMPANY_WEBSITE,STATIC_HTML,Phnom Penh,Education,official-career-search
