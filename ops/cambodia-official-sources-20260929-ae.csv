@@ -1,0 +1,4 @@
+name,base_url,jobs_url,source_type,parser_type,city,industry,discovery_method
+SINET Cambodia,https://www.sinet.com.kh,https://www.sinet.com.kh/about-us/careers/,OFFICIAL_COMPANY_WEBSITE,STATIC_HTML,Phnom Penh,Telecommunications and Internet,official_careers_audit_20260929_v
+AMK Bank Cambodia,https://amkcambodia.com,https://amkcambodia.com/careers/,OFFICIAL_COMPANY_WEBSITE,STATIC_HTML,Phnom Penh,Banking and Microfinance,official_careers_audit_20260929_v
+Oriental Bank Cambodia,https://www.orientalbank.com.kh,https://www.orientalbank.com.kh/about-us/careers,OFFICIAL_COMPANY_WEBSITE,STATIC_HTML,Phnom Penh,Banking,official_careers_audit_20260929_v
