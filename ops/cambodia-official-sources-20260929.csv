@@ -1,0 +1,12 @@
+name,base_url,jobs_url,source_type,parser_type,city,industry,discovery_method
+Canadia Bank,https://www.canadiabank.com.kh,https://www.canadiabank.com.kh/careers,OFFICIAL_COMPANY_WEBSITE,STATIC_HTML,Phnom Penh,Banking,official_careers_batch_20260929
+PRASAC Bank,https://www.prasac.com.kh,https://www.prasac.com.kh/en/careers/job-opportunity/,OFFICIAL_COMPANY_WEBSITE,STATIC_HTML,Cambodia,Microfinance,official_careers_batch_20260929
+PPCBank,https://www.ppcbank.com.kh,https://www.ppcbank.com.kh/km/employment-opportunity/,OFFICIAL_COMPANY_WEBSITE,STATIC_HTML,Phnom Penh,Banking,official_careers_batch_20260929
+Shinhan Bank Cambodia,https://www.shinhan.com.kh,https://www.shinhan.com.kh/en/career-listing.html,OFFICIAL_COMPANY_WEBSITE,STATIC_HTML,Phnom Penh,Banking,official_careers_batch_20260929
+Vattanac Bank,https://careers.vattanacbank.com,https://careers.vattanacbank.com/,OFFICIAL_COMPANY_WEBSITE,STATIC_HTML,Phnom Penh,Banking,official_careers_batch_20260929
+Wing Bank,https://www.wingbank.com.kh,https://www.wingbank.com.kh/en/careers,OFFICIAL_COMPANY_WEBSITE,STATIC_HTML,Phnom Penh,Banking,official_careers_batch_20260929
+ARDB,https://www.ardb.com.kh,https://www.ardb.com.kh/careers/,OFFICIAL_COMPANY_WEBSITE,STATIC_HTML,Phnom Penh,Banking,official_careers_batch_20260929
+Maybank Cambodia,https://www.maybank2u.com.kh,https://www.maybank2u.com.kh/en/about_us/maybank_career.page,OFFICIAL_COMPANY_WEBSITE,STATIC_HTML,Phnom Penh,Banking,official_careers_batch_20260929
+cellcard,https://www.cellcard.com.kh,https://www.cellcard.com.kh/en/careers,OFFICIAL_COMPANY_WEBSITE,STATIC_HTML,Phnom Penh,Telecommunications,official_careers_batch_20260929
+Metfone,https://metfone.com.kh,https://metfone.com.kh/kh/career,OFFICIAL_COMPANY_WEBSITE,STATIC_HTML,Phnom Penh,Telecommunications,official_careers_batch_20260929
+Sahakrinpheap Microfinance,https://www.sahakrinpheap.com.kh,https://www.sahakrinpheap.com.kh/en/career,OFFICIAL_COMPANY_WEBSITE,STATIC_HTML,Cambodia,Microfinance,official_careers_batch_20260929
