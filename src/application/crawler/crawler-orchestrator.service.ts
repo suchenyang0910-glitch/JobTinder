@@ -84,7 +84,7 @@ export class CrawlerOrchestrator {
       return stats;
     }
     if (!source.enabled) return stats;
-    if (source.parser_type !== 'STATIC_HTML' && source.parser_type !== 'FIRECRAWL') {
+    if (!['STATIC_HTML', 'FIRECRAWL', 'PLAYWRIGHT', 'RSS'].includes(source.parser_type)) {
       throw new AppError({
         code: AppErrorCode.CRAWL_SOURCE_PARSER_NOT_IMPLEMENTED,
         message: `parser_type ${source.parser_type} is not implemented in stage-1`,
@@ -113,7 +113,9 @@ export class CrawlerOrchestrator {
       data: { robots_status: robots.allowed ? 'ALLOWED' : 'UNCHECKED', last_crawled_at: now },
     });
 
-    const index = source.parser_type === 'FIRECRAWL'
+    const isDynamic = source.parser_type === 'FIRECRAWL' || source.parser_type === 'PLAYWRIGHT';
+    const isRss = source.parser_type === 'RSS';
+    const index = isDynamic
       ? await this.crawler.fetchDynamicPage({ sourceId, url: source.jobs_url })
       : await this.crawler.fetchPage({ sourceId, url: source.jobs_url, crawlDelayMs: robots.crawlDelayMs });
     if (index.errorCode) {
@@ -121,7 +123,10 @@ export class CrawlerOrchestrator {
       stats.lastError = `index fetch ${index.errorCode}: ${index.errorMessage ?? ''}`;
       return stats;
     }
-    const jobLinks = this.crawler.discoverJobLinks(index.body, source.base_url);
+    const rssItems = isRss ? this.crawler.rssItems(index.body) : [];
+    const jobLinks = isRss
+      ? rssItems.map((item) => item.link).filter((link): link is string => Boolean(link))
+      : this.crawler.discoverJobLinks(index.body, source.base_url);
     const existingSourceJobIds = new Set(
       (
         await this.prisma.crawl_jobs_staging.findMany({
@@ -134,9 +139,12 @@ export class CrawlerOrchestrator {
 
     for (const url of jobLinks.slice(0, 50)) {
       try {
-        const sourceJobId = this.inferSourceJobId(url, source.base_url);
+        const rssItem = isRss ? rssItems.find((item) => item.link === url) : undefined;
+        const sourceJobId = rssItem?.guid?.trim() || this.inferSourceJobId(url, source.base_url);
         seenSourceJobIdsThisRun.add(sourceJobId);
-        const result = source.parser_type === 'FIRECRAWL'
+        const result = rssItem
+          ? this.crawler.rssItemResult(rssItem, index)
+          : isDynamic
           ? await this.crawler.fetchDynamicPage({ sourceId, url })
           : await this.crawler.fetchPage({ sourceId, url, crawlDelayMs: robots.crawlDelayMs });
         const snapshot = await this.persistSnapshot(sourceId, result);

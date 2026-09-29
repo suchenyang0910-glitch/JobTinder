@@ -15,7 +15,6 @@ import {
 } from '@src/infrastructure/crawler/static-http-crawler';
 import { AuditActionEnum } from '@src/shared/audit/audit-action-enum';
 import { AppError } from '@src/shared/errors/app-error';
-import { AppErrorCode } from '@src/shared/errors/app-error-code';
 import {
   bandForSourceVerificationScore,
   canSourceReviewTransition,
@@ -87,7 +86,10 @@ function makeFakeAuditRepo() {
 type FakeCrawler = {
   checkRobots: ReturnType<typeof vi.fn>;
   fetchPage: ReturnType<typeof vi.fn>;
+  fetchDynamicPage: ReturnType<typeof vi.fn>;
   discoverJobLinks: ReturnType<typeof vi.fn>;
+  rssItems: ReturnType<typeof vi.fn>;
+  rssItemResult: ReturnType<typeof vi.fn>;
   extractTextFromHtml: ReturnType<typeof vi.fn>;
   parseJobStructuredFields: ReturnType<typeof vi.fn>;
 };
@@ -109,6 +111,20 @@ function makeFakeCrawler(): FakeCrawler {
       isDuplicate: false,
       headers: new Map(),
     })),
+    fetchDynamicPage: vi.fn().mockImplementation(async () => ({
+      url: 'https://example.com/careers',
+      httpStatus: 200,
+      contentType: 'text/html',
+      body: '<html><body>ok</body></html>',
+      contentHash: 'abc123',
+      fetchedAt: new Date(),
+      errorCode: null,
+      errorMessage: null,
+      isDuplicate: false,
+      headers: new Map(),
+    })),
+    rssItems: vi.fn().mockReturnValue([]),
+    rssItemResult: vi.fn(),
     discoverJobLinks: vi
       .fn()
       .mockReturnValue(['https://example.com/careers/job1', 'https://example.com/careers/job2']),
@@ -664,7 +680,7 @@ describe('Source Full Pipeline (§11 集成 13 步: CSV→导入→验证→审�
       expect(stats.newCount).toBe(0);
     });
 
-    it('parser_type=PLAYWRIGHT 即使 review_status=APPROVED enabled=true 抛 CRAWL_SOURCE_PARSER_NOT_IMPLEMENTED', async () => {
+    it('parser_type=PLAYWRIGHT 即使 review_status=APPROVED enabled=true 走动态抓取适配器', async () => {
       const imp = makeImportSvc();
       const orch = makeOrchestrator();
       const r = await imp.importFromCsvText(makeImportCsvText(CSV_GOOD_SMART));
@@ -673,14 +689,9 @@ describe('Source Full Pipeline (§11 集成 13 步: CSV→导入→验证→审�
         where: { id },
         data: { review_status: 'APPROVED', enabled: true, parser_type: 'PLAYWRIGHT' },
       });
-      let caught: AppError | null = null;
-      try {
-        await orch.runSource(id);
-      } catch (e) {
-        caught = e as AppError;
-      }
-      expect(caught).toBeInstanceOf(AppError);
-      expect(caught!.code).toBe(AppErrorCode.CRAWL_SOURCE_PARSER_NOT_IMPLEMENTED);
+      const stats = await orch.runSource(id);
+      expect(stats.errorCount).toBe(0);
+      expect(crawlerFake.fetchDynamicPage).toHaveBeenCalled();
     });
   });
 

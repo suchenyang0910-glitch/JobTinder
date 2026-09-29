@@ -3,6 +3,7 @@ import { createHash, randomInt } from 'node:crypto';
 import { APP_ENV } from '@src/shared/env/app-env';
 import { AppError } from '@src/shared/errors/app-error';
 import { AppErrorCode } from '@src/shared/errors/app-error-code';
+import { parseRssItems, type RssItem } from '@src/infrastructure/remote/rss-feeds.adapter';
 
 export interface FetchResult {
   url: string;
@@ -300,6 +301,22 @@ export class StaticHttpCrawler {
     } finally {
       clearTimeout(timer);
     }
+  }
+
+  rssItems(body: string): RssItem[] {
+    return parseRssItems(body);
+  }
+
+  rssItemResult(item: RssItem, feed: FetchResult): FetchResult {
+    const body = `<article><h1>${item.title ?? ''}</h1><div>${item.description ?? ''}</div></article>`;
+    return {
+      ...feed,
+      url: item.link ?? feed.url,
+      body,
+      contentType: 'text/html',
+      contentHash: StaticHttpCrawler.sha256Hex(body),
+      isDuplicate: false,
+    };
   }
 
   private buildErrorResult(
