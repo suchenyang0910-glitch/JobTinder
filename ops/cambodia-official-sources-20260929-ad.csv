@@ -1,0 +1,4 @@
+name,base_url,jobs_url,source_type,parser_type,city,industry,discovery_method
+M'Lop Tapang Cambodia,https://www.mloptapang.org,https://www.mloptapang.org/jobs,OFFICIAL_COMPANY_WEBSITE,STATIC_HTML,Sihanoukville,Community Services,official_careers_audit_20260929_u
+APLE Cambodia,https://aplecambodia.org,https://aplecambodia.org/work-with-us/,OFFICIAL_COMPANY_WEBSITE,STATIC_HTML,Phnom Penh,Child Protection and NGOs,official_careers_audit_20260929_u
+YaspirePack Cambodia,https://yaspireglobal.com,https://yaspireglobal.com/careers/,OFFICIAL_COMPANY_WEBSITE,STATIC_HTML,Phnom Penh,Packaging and Manufacturing,official_careers_audit_20260929_u
