@@ -1,3 +1,4 @@
 name,base_url,jobs_url,source_type,parser_type,city,industry,discovery_method
-Royal Railway Cambodia,https://royalrailway.com.kh,https://royalrailway.com.kh/career,OFFICIAL_COMPANY_WEBSITE,STATIC_HTML,Phnom Penh,Transport Rail and Logistics,official_careers_audit_20260929_t
-Phnom Penh Autonomous Port,https://ppap.com.kh,https://ppap.com.kh/en/careers/job-recruitment-with-many-positions,OFFICIAL_COMPANY_WEBSITE,STATIC_HTML,Phnom Penh,Port and Logistics,official_careers_audit_20260929_t
+Cambodia Post Bank (CPBank),https://www.cambodiapostbank.com.kh,https://www.cambodiapostbank.com.kh/career,OFFICIAL_COMPANY_WEBSITE,PLAYWRIGHT,Phnom Penh,Banking,official_careers_audit_20260929_t
+Winsun Cambodia,https://winsuncambodia.com,https://winsuncambodia.com/careers,OFFICIAL_COMPANY_WEBSITE,PLAYWRIGHT,Phnom Penh,Hygiene Products Manufacturing,official_careers_audit_20260929_t
+Kampuchean Action for Primary Education (KAPE),https://kapekh.org,https://kapekh.org/en/careers/vacancy,OFFICIAL_COMPANY_WEBSITE,PLAYWRIGHT,Phnom Penh and Provinces,Education and NGO,official_careers_audit_20260929_t
