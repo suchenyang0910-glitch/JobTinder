@@ -1,0 +1,4 @@
+name,base_url,jobs_url,source_type,parser_type,city,industry,discovery_method
+Sika Cambodia,https://www.sika.com,https://www.sika.com/en/career/jobs/job-posting-page/jid-f67e0c08-fabe-4689-839b-162bd690b6f4.html,OFFICIAL_COMPANY_WEBSITE,STATIC_HTML,Phnom Penh,Manufacturing,official-career-search
+HANA Microelectronics Cambodia,https://www.hanagroup.com,https://www.hanagroup.com/Career/JobDetail?jobId=1060,OFFICIAL_COMPANY_WEBSITE,STATIC_HTML,Phnom Penh,Manufacturing,official-career-search
+CB General Insurance Cambodia,https://cbinsurance.com.kh,https://cbinsurance.com.kh/careers/,OFFICIAL_COMPANY_WEBSITE,STATIC_HTML,Phnom Penh,Insurance,official-career-search
