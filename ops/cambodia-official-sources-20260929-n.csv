@@ -1,0 +1,6 @@
+name,base_url,jobs_url,source_type,parser_type,city,industry,discovery_method
+LOLC Cambodia,https://www.lolc.com.kh,https://www.lolc.com.kh/kh/opportunities,OFFICIAL_COMPANY_WEBSITE,STATIC_HTML,Phnom Penh,Microfinance and Banking,official_careers_audit_20260929_f
+Amret Microfinance Institution,https://www.amret.com.kh,https://www.amret.com.kh/en/careers-opportunity,OFFICIAL_COMPANY_WEBSITE,STATIC_HTML,Phnom Penh,Microfinance and Banking,official_careers_audit_20260929_f
+BRED Bank Cambodia,https://bredcambodia.com.kh,https://bredcambodia.com.kh/about-us/careers/,OFFICIAL_COMPANY_WEBSITE,STATIC_HTML,Phnom Penh,Banking,official_careers_audit_20260929_f
+Forte Insurance Cambodia,https://www.forteinsurance.com,https://www.forteinsurance.com/about-us/careers/,OFFICIAL_COMPANY_WEBSITE,STATIC_HTML,Phnom Penh,Insurance,official_careers_audit_20260929_f
+Huawei Technologies Cambodia,https://career.huawei.com,https://career.huawei.com/reccampportal/portal5/social-recruitment-detail.html?dataSource=1&jobId=19118,OFFICIAL_COMPANY_WEBSITE,STATIC_HTML,Phnom Penh,Telecommunications and ICT,official_careers_audit_20260929_f
