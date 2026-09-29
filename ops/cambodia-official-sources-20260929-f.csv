@@ -1,0 +1,5 @@
+name,base_url,jobs_url,source_type,parser_type,city,industry,discovery_method
+DFI Lucky Cambodia,https://www.dfilucky.com,https://www.dfilucky.com/careers/,OFFICIAL_COMPANY_WEBSITE,STATIC_HTML,Phnom Penh,Retail,official_careers_batch_20260929_f
+AIA Cambodia,https://www.aia.com.kh,https://www.aia.com.kh/en/about-aia/careers,OFFICIAL_COMPANY_WEBSITE,STATIC_HTML,Phnom Penh,Insurance,official_careers_batch_20260929_f
+Cambodia Airports,https://corp.cambodia-airports.aero,https://corp.cambodia-airports.aero/en/jobs-offers,OFFICIAL_COMPANY_WEBSITE,STATIC_HTML,Phnom Penh,Aviation and Logistics,official_careers_batch_20260929_f
+DFDL Cambodia,https://www.dfdl.com,https://www.dfdl.com/careers/,OFFICIAL_COMPANY_WEBSITE,STATIC_HTML,Phnom Penh,Professional Services,official_careers_batch_20260929_f
