@@ -1,0 +1,2 @@
+name,base_url,jobs_url,source_type,parser_type,city,industry,discovery_method
+SBI Bank Cambodia,https://www.sbibank.com.kh,https://www.sbibank.com.kh/en/our-bank/careers,OFFICIAL_COMPANY_WEBSITE,PLAYWRIGHT,Phnom Penh,Banking,official_careers_search_20260929
