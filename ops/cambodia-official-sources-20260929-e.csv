@@ -1,0 +1,6 @@
+name,base_url,jobs_url,source_type,parser_type,city,industry,discovery_method
+AEON MALL Cambodia,https://www.aeonmallcambodia.com,https://www.aeonmallcambodia.com/career/,OFFICIAL_COMPANY_WEBSITE,STATIC_HTML,Phnom Penh,Retail,official_careers_batch_20260929_e
+KOFI Cambodia,https://kofi.com.kh,https://kofi.com.kh/career,OFFICIAL_COMPANY_WEBSITE,STATIC_HTML,Phnom Penh,Food and Beverage,official_careers_batch_20260929_e
+SOMA Group,https://www.somagroup.com.kh,https://www.somagroup.com.kh/career,OFFICIAL_COMPANY_WEBSITE,STATIC_HTML,Phnom Penh,Industrial and Agriculture,official_careers_batch_20260929_e
+Bonchon Cambodia,https://www.bonchon.com.kh,https://www.bonchon.com.kh/career/,OFFICIAL_COMPANY_WEBSITE,STATIC_HTML,Phnom Penh,Food and Beverage,official_careers_batch_20260929_e
+Sokha Hotels and Resorts,https://www.sokhahotels.com.kh,https://www.sokhahotels.com.kh/career,OFFICIAL_COMPANY_WEBSITE,STATIC_HTML,Phnom Penh,Hospitality,official_careers_batch_20260929_e
