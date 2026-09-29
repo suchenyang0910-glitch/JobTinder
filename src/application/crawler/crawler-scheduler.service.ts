@@ -290,6 +290,11 @@ export class CrawlerSchedulerService {
       'https://www.ccdkh.org.kh/members',
       'https://canchamcambodia.org/membership/directory',
       'https://khmersme.gov.kh/directory',
+      'https://www.ccc.org.kh/en/member-directory',
+      'https://ibccambodia.com/members-directory/',
+      'https://amchamcambodia.net/become-a-member/membership-directory/',
+      'https://phnompenhclub.org/en/member-directory',
+      'https://www.cambodiayp.com/',
     ];
   }
 
