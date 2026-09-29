@@ -1,3 +1,3 @@
 name,base_url,jobs_url,source_type,parser_type,city,industry,discovery_method
-SCG Cambodia,https://career.scg.com,https://career.scg.com/,OFFICIAL_COMPANY_WEBSITE,STATIC_HTML,Phnom Penh,Construction Materials and Manufacturing,official_careers_audit_20260929_y
-T.A Coin Cambodia,https://www.tacointrade.com,https://www.tacointrade.com/jobs,OFFICIAL_COMPANY_WEBSITE,STATIC_HTML,Phnom Penh,Financial Technology and Investment,official_careers_audit_20260929_y
+Prudential Cambodia,https://www.prudential.com.kh,https://www.prudential.com.kh/en/work-with-us/corporate-career,OFFICIAL_COMPANY_WEBSITE,PLAYWRIGHT,Phnom Penh,Insurance and Financial Services,official_careers_audit_20260929_y
+TotalEnergies Cambodia,https://kh.totalenergies.com,https://kh.totalenergies.com/en/who-we-are/careers,OFFICIAL_COMPANY_WEBSITE,STATIC_HTML,Phnom Penh,Energy and Retail,official_careers_audit_20260929_y
