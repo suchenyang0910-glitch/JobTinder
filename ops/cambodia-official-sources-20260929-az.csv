@@ -1,0 +1,3 @@
+name,base_url,jobs_url,source_type,parser_type,city,industry,discovery_method
+S.E.A.T.S Cambodia,https://seats-inc.com,https://seats-inc.com/option-career/,OFFICIAL_COMPANY_WEBSITE,STATIC_HTML,Phnom Penh,Business Services and Consulting,official_careers_search_20260929
+CIA FIRST International School Cambodia,https://www.ciaschool.edu.kh,https://www.ciaschool.edu.kh/join-our-team,OFFICIAL_COMPANY_WEBSITE,STATIC_HTML,Phnom Penh,Education,official_careers_search_20260929
