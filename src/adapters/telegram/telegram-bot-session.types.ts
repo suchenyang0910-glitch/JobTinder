@@ -28,7 +28,8 @@ export type TelegramBotStep =
   | 'COMPANY_EDIT_WEBSITE'
   | 'COMPANY_EDIT_RECRUITER'
   | 'COMPANY_JOB_EDIT_TITLE'
-  | 'COMPANY_JOB_EDIT_SALARY';
+  | 'COMPANY_JOB_EDIT_SALARY'
+  | 'RESUME_AWAIT_TEXT';
 
 export interface TelegramBotSession {
   // Identity — populated right after /start upsert. Only IDs, no PII.

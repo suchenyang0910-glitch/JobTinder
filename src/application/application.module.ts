@@ -26,6 +26,10 @@ import { RemoteJobNormalizeService } from './remote/remote-job-normalize.service
 import { RemoteJobEligibilityService } from './remote/remote-job-eligibility.service';
 import { RemoteDailyDigestService } from './remote/remote-daily-digest.service';
 import { JobApplicationService } from './job-application.service';
+import { ResumeService } from './resume/resume.service';
+import { ResumeLanguageService } from './resume/resume-language.service';
+import { ResumeAiService } from './resume/resume-ai.service';
+import { ResumeDocxRenderer } from '@src/infrastructure/resume/resume-docx-renderer';
 
 @Module({
   imports: [SharedModule, PrismaModule],
@@ -53,6 +57,10 @@ import { JobApplicationService } from './job-application.service';
     RemoteJobEligibilityService,
     RemoteDailyDigestService,
     JobApplicationService,
+    ResumeService,
+    ResumeLanguageService,
+    ResumeAiService,
+    ResumeDocxRenderer,
   ],
   exports: [
     UserIdentityService,
@@ -78,6 +86,10 @@ import { JobApplicationService } from './job-application.service';
     RemoteJobEligibilityService,
     RemoteDailyDigestService,
     JobApplicationService,
+    ResumeService,
+    ResumeLanguageService,
+    ResumeAiService,
+    ResumeDocxRenderer,
   ],
 })
 export class ApplicationModule {}

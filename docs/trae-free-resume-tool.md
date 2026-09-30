@@ -53,6 +53,7 @@ resume:delete:<id>
 - title
 - structured_json Json
 - source_text_hash
+- raw_input（仅在语言待确认或 AI 解析失败重试期间暂存；成功解析或删除时清空）
 - file_path、file_sha256、file_size_bytes
 - generation_version
 - generated_at、created_at、updated_at

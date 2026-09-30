@@ -20,6 +20,7 @@ import { AppErrorCode } from '@src/shared/errors/app-error-code';
 import { translateAppError } from './error-translator';
 import { pickT } from '@src/shared/i18n';
 import type { Translation } from '@src/shared/i18n/locales/en';
+import { TelegramResumeFlowHandler } from './telegram-resume-flow.handler';
 import {
   isProfileReadyToConfirm,
   type CandidateDraftFields,
@@ -56,6 +57,7 @@ export class TelegramBotService implements OnModuleInit, OnModuleDestroy {
     private readonly hardMatch: HardMatchService,
     private readonly matchWorkflow: MatchWorkflowService,
     private readonly resultFeedback: ResultFeedbackService,
+    private readonly resumeFlow: TelegramResumeFlowHandler,
     private readonly prisma: PrismaService,
   ) {}
 
@@ -128,6 +130,24 @@ export class TelegramBotService implements OnModuleInit, OnModuleDestroy {
     bot.command('matches', (ctx) => this.safeRun(ctx, (c) => this.handleMatches(c)));
     bot.command('remote', (ctx) => this.safeRun(ctx, (c) => this.handleRemote(c)));
     bot.command('settings', (ctx) => ctx.reply('Feature coming in stage-2.'));
+    bot.command('resume', (ctx) =>
+      this.safeRun(ctx, async (c) => {
+        await this.ensureIdentity(c);
+        await this.resumeFlow.handleResumeCommand(c, this.T(c));
+      }),
+    );
+    bot.command('myresume', (ctx) =>
+      this.safeRun(ctx, async (c) => {
+        await this.ensureIdentity(c);
+        await this.resumeFlow.handleMyResumeCommand(c, this.T(c));
+      }),
+    );
+    bot.command('deleteresume', (ctx) =>
+      this.safeRun(ctx, async (c) => {
+        await this.ensureIdentity(c);
+        await this.resumeFlow.handleDeleteResumeCommand(c);
+      }),
+    );
 
     // Callback queries
     bot.callbackQuery(/^lang:(en|zh_CN|km)$/, (ctx) =>
@@ -209,6 +229,14 @@ export class TelegramBotService implements OnModuleInit, OnModuleDestroy {
     bot.callbackQuery(/^menu:(find|matches|remote)$/, (ctx) =>
       this.safeRun(ctx, (c) => this.handleMenuAction(c)),
     );
+    bot.callbackQuery(/^resume:(.*)$/, (ctx) =>
+      this.safeRun(ctx, async (c) => {
+        const data = c.callbackQuery?.data;
+        if (!data) return;
+        await this.ensureIdentity(c);
+        await this.resumeFlow.handleCallback(c, data.slice(7), this.T(c));
+      }),
+    );
 
     // Plain text
     bot.on('message:text', (ctx) => this.safeRun(ctx, (c) => this.handleTextMessage(c)));
@@ -286,6 +314,8 @@ export class TelegramBotService implements OnModuleInit, OnModuleDestroy {
     await this.ensureIdentity(ctx);
     const T = this.T(ctx);
     const kb = new InlineKeyboard()
+      .text('📝 免费制作简历', 'resume:start')
+      .row()
       .text(T.MENU.profileCandidate(), 'menu:profile:candidate')
       .row()
       .text(T.MENU.profileCompany(), 'menu:profile:company')
@@ -301,6 +331,8 @@ export class TelegramBotService implements OnModuleInit, OnModuleDestroy {
   }
 
   private async handleCancel(ctx: TeleCtx) {
+    await this.ensureIdentity(ctx);
+    await this.resumeFlow.cancelUnprocessedDraft(this.requireUserId(ctx));
     ctx.session.step = 'IDLE';
     ctx.session.candidateDraftId = undefined;
     ctx.session.candidateDraftVersion = undefined;
@@ -1233,6 +1265,7 @@ export class TelegramBotService implements OnModuleInit, OnModuleDestroy {
       }
       case 'IDLE':
       default:
+        if (await this.resumeFlow.handleText(ctx, T)) return;
         await this.handleMenu(ctx);
     }
   }

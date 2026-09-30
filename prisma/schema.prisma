@@ -229,6 +229,14 @@ enum StatusSource {
   INFERRED
 }
 
+enum ResumeDocumentStatus {
+  DRAFT
+  GENERATING
+  READY
+  FAILED
+  DELETED
+}
+
 enum AuditAction {
   USER_CREATED
   USER_LANGUAGE_CHANGED
@@ -291,6 +299,13 @@ enum AuditAction {
   FOLLOW_UP_REMINDER_SENT
   CRAWL_AUTO_PUBLISH_TRIGGERED
   CRAWL_AUTO_PUBLISH_SKIPPED
+  RESUME_DRAFT_CREATED
+  RESUME_DRAFT_UPDATED
+  RESUME_GENERATION_STARTED
+  RESUME_GENERATED
+  RESUME_GENERATION_FAILED
+  RESUME_DOWNLOADED
+  RESUME_DELETED
 }
 
 // ---------- Users ----------
@@ -313,6 +328,7 @@ model users {
   sessions           sessions[]
   audit_events       audit_events[]
   outbox             notifications[] @relation("outbox_recipient")
+  resume_document    resume_documents?
 }
 
 // ---------- Candidate Profiles ----------
@@ -812,4 +828,27 @@ model job_applications {
   @@index([candidate_id, status])
   @@index([job_id, status])
   @@index([status, next_follow_up_at])
+}
+
+model resume_documents {
+  id                 BigInt               @id @default(autoincrement())
+  user_id            BigInt               @unique
+  status             ResumeDocumentStatus @default(DRAFT)
+  input_language     String?              @db.VarChar(16)
+  output_language    String?              @db.VarChar(16)
+  title              String?              @db.VarChar(512)
+  structured_json    Json                 @default("{}")
+  source_text_hash   String?              @db.VarChar(128)
+  raw_input          String?              @db.Text
+  file_path          String?              @db.VarChar(1024)
+  file_sha256        String?              @db.VarChar(128)
+  file_size_bytes    Int?
+  generation_version Int                  @default(1)
+  generated_at       DateTime?
+  created_at         DateTime             @default(now())
+  updated_at         DateTime             @updatedAt
+
+  user users @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@index([status])
 }
