@@ -67,9 +67,19 @@ function makeFakePrisma(): FakePrisma {
         const w = (where ?? {}) as {
           status?: string;
           id?: { notIn?: bigint[] };
+          work_mode?: string | { in?: string[] };
+          eligibility_status?: { in?: string[] };
         };
         let rows = Array.from(db.jobs.values());
         if (w.status) rows = rows.filter((r) => r.status === w.status);
+        if (typeof w.work_mode === 'string') rows = rows.filter((r) => r.work_mode === w.work_mode);
+        const workModeFilter = typeof w.work_mode === 'object' ? w.work_mode : undefined;
+        if (workModeFilter?.in)
+          rows = rows.filter((r) => workModeFilter.in!.includes(String(r.work_mode)));
+        if (w.eligibility_status?.in)
+          rows = rows.filter((r) =>
+            w.eligibility_status!.in!.includes(String(r.eligibility_status)),
+          );
         if (w.id?.notIn?.length) {
           const exclude = new Set(w.id.notIn);
           rows = rows.filter((r) => !exclude.has(r.id as bigint));
@@ -79,6 +89,7 @@ function makeFakePrisma(): FakePrisma {
           id: j.id,
           title: j.title,
           industry: j.industry,
+          work_mode: j.work_mode,
           skills: j.skills,
           locations: j.locations,
           languages_required: j.languages_required,
@@ -236,6 +247,32 @@ describe('HardMatchService (C1 salary overlap / 6 dims)', () => {
     const s = svc();
     const r = await s.suggest({ candidateId: 1n, limit: 50 });
     expect(r.jobs.map((j) => j.jobId)).not.toContain(11n);
+  });
+
+  it('filters the requested work modes so a daily digest can include local and remote jobs', async () => {
+    const remote = {
+      ...prisma.db.jobs.get(11n)!,
+      id: 14n,
+      work_mode: 'REMOTE',
+      eligibility_status: 'NEEDS_CONFIRMATION',
+    };
+    const onsite = {
+      ...prisma.db.jobs.get(11n)!,
+      id: 15n,
+      work_mode: 'ONSITE',
+      eligibility_status: 'CONFIRMED',
+    };
+    prisma.db.jobs.set(14n, remote);
+    prisma.db.jobs.set(15n, onsite);
+
+    const result = await svc().suggest({
+      candidateId: 1n,
+      workModes: ['ONSITE', 'HYBRID'],
+      limit: 20,
+    });
+
+    expect(result.jobs.map((job) => job.jobId)).toContain(15n);
+    expect(result.jobs.map((job) => job.jobId)).not.toContain(14n);
   });
 
   it('C1 6 维命中 验证：loc×3 + skills×2 + langs + industry + salary = 建议排序 job11 > job10', async () => {

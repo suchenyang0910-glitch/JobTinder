@@ -46,6 +46,7 @@ type SuggestInput = {
   limit?: number;
   excludeJobIds?: bigint[];
   remoteScope?: boolean;
+  workModes?: Array<'ONSITE' | 'HYBRID' | 'REMOTE'>;
 };
 
 type SalaryRange = {
@@ -127,7 +128,9 @@ export class HardMatchService {
               work_mode: 'REMOTE',
               eligibility_status: { in: ['CONFIRMED', 'NEEDS_CONFIRMATION'] },
             }
-          : {}),
+          : input.workModes?.length
+            ? { work_mode: { in: input.workModes } }
+            : {}),
       },
       select: {
         id: true,

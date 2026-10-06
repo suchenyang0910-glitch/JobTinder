@@ -21,7 +21,86 @@ type DigestJob = {
   eligibilityStatus: string | null;
   salaryText: string | null;
   sourceUrl: string | null;
+  workMode: string;
 };
+
+const DIGEST_COPY = {
+  zh_CN: {
+    headline: (n: number) => `💼 每日岗位推荐（${n} 条）`,
+    industry: '行业',
+    score: '匹配分数',
+    eligibility: '资格',
+    salary: '薪资',
+    scope: '远程范围',
+    platform: '来源',
+    apply: '申请',
+    confirm: '⚠️ 部分岗位资格信息仍需确认。',
+    salaryMissing: '面议',
+    modes: { REMOTE: '🌐 远程', ONSITE: '🏢 现场', HYBRID: '🔀 混合办公' },
+    scopes: {
+      WORLDWIDE: '全球',
+      ASIA: '亚洲',
+      ASEAN: '东盟',
+      CAMBODIA_ONLY: '仅柬埔寨',
+      COUNTRY_LIMITED: '限指定国家',
+    },
+    eligibilityValues: {
+      CONFIRMED: '已确认',
+      NEEDS_CONFIRMATION: '需要确认',
+      NOT_ELIGIBLE: '不符合',
+    },
+  },
+  en: {
+    headline: (n: number) => `💼 Daily job recommendations (${n})`,
+    industry: 'Industry',
+    score: 'Match score',
+    eligibility: 'Eligibility',
+    salary: 'Salary',
+    scope: 'Remote scope',
+    platform: 'Source',
+    apply: 'Apply',
+    confirm: '⚠️ Some eligibility details still need confirmation.',
+    salaryMissing: 'Not disclosed',
+    modes: { REMOTE: '🌐 Remote', ONSITE: '🏢 On-site', HYBRID: '🔀 Hybrid' },
+    scopes: {
+      WORLDWIDE: 'Worldwide',
+      ASIA: 'Asia',
+      ASEAN: 'ASEAN',
+      CAMBODIA_ONLY: 'Cambodia only',
+      COUNTRY_LIMITED: 'Country-limited',
+    },
+    eligibilityValues: {
+      CONFIRMED: 'Confirmed',
+      NEEDS_CONFIRMATION: 'Needs confirmation',
+      NOT_ELIGIBLE: 'Not eligible',
+    },
+  },
+  km: {
+    headline: (n: number) => `💼 ការងារណែនាំប្រចាំថ្ងៃ (${n})`,
+    industry: 'វិស័យ',
+    score: 'ពិន្ទុផ្គូផ្គង',
+    eligibility: 'លក្ខខណ្ឌ',
+    salary: 'ប្រាក់ខែ',
+    scope: 'វិសាលភាពពីចម្ងាយ',
+    platform: 'ប្រភព',
+    apply: 'ដាក់ពាក្យ',
+    confirm: '⚠️ ព័ត៌មានលក្ខខណ្ឌខ្លះនៅត្រូវការការបញ្ជាក់។',
+    salaryMissing: 'មិនបានបញ្ជាក់',
+    modes: { REMOTE: '🌐 ពីចម្ងាយ', ONSITE: '🏢 នៅទីតាំង', HYBRID: '🔀 កូនកាត់' },
+    scopes: {
+      WORLDWIDE: 'ទូទាំងពិភពលោក',
+      ASIA: 'អាស៊ី',
+      ASEAN: 'អាស៊ាន',
+      CAMBODIA_ONLY: 'តែកម្ពុជា',
+      COUNTRY_LIMITED: 'កំណត់តាមប្រទេស',
+    },
+    eligibilityValues: {
+      CONFIRMED: 'បានបញ្ជាក់',
+      NEEDS_CONFIRMATION: 'ត្រូវការបញ្ជាក់',
+      NOT_ELIGIBLE: 'មិនមានសិទ្ធិ',
+    },
+  },
+} as const;
 
 type CandidateDigest = {
   candidateId: bigint;
@@ -61,7 +140,7 @@ export class RemoteDailyDigestService {
       select: {
         id: true,
         user_id: true,
-        user: { select: { telegram_user_id: true } },
+        user: { select: { telegram_user_id: true, language: true } },
         job_search_status: true,
       },
       take: candidateLimit,
@@ -83,24 +162,28 @@ export class RemoteDailyDigestService {
       });
       if (alreadySent) continue;
 
-      const suggestions = await this.hardMatch.suggest({
-        candidateId: cand.id,
-        limit: 5,
-        remoteScope: true,
-      });
+      const [localSuggestions, remoteSuggestions] = await Promise.all([
+        this.hardMatch.suggest({
+          candidateId: cand.id,
+          limit: 5,
+          workModes: ['ONSITE', 'HYBRID'],
+        }),
+        this.hardMatch.suggest({ candidateId: cand.id, limit: 5, remoteScope: true }),
+      ]);
 
-      if (!suggestions.jobs.length) {
+      if (!localSuggestions.jobs.length && !remoteSuggestions.jobs.length) {
         skippedEmpty++;
         continue;
       }
 
-      const jobsSent = suggestions.jobs.slice(0, 5);
+      const jobsSent = this.interleaveJobs(localSuggestions.jobs, remoteSuggestions.jobs);
       totalJobsSent += jobsSent.length;
 
       if (!opts?.dryRun) {
         const ok = await this.sendCandidateDigest(
           cand.user.telegram_user_id ?? null,
           cand.id,
+          cand.user.language,
           jobsSent,
         );
         if (!ok) {
@@ -119,7 +202,7 @@ export class RemoteDailyDigestService {
               jobs_sent: String(jobsSent.length),
               job_ids: jobsSent.map((j) => String(j.jobId)).join(','),
               candidate_user_id: String(cand.user_id),
-              scope: 'remote',
+              scope: 'local_and_remote',
               top5: 'true',
             },
             now,
@@ -143,25 +226,55 @@ export class RemoteDailyDigestService {
   private async sendCandidateDigest(
     telegramUserId: bigint | null,
     _candidateId: bigint,
+    language: 'zh_CN' | 'en' | 'km',
     jobs: DigestJob[],
   ): Promise<boolean> {
     if (!telegramUserId) return false;
     const token = APP_ENV.TELEGRAM_BOT_TOKEN;
     if (!token) return false;
 
-    const headline = `🌐 远程岗位每日推荐（${jobs.length} 条）\n\n`;
+    const copy = DIGEST_COPY[language] ?? DIGEST_COPY.en;
+    const translated = await this.prisma.jobs.findMany({
+      where: { id: { in: jobs.map((job) => job.jobId) } },
+      select: {
+        id: true,
+        published_from_crawl: {
+          select: {
+            job_translations: {
+              where: { language },
+              orderBy: { updated_at: 'desc' },
+              take: 1,
+              select: { title: true, industry: true, salary_text: true },
+            },
+          },
+        },
+      },
+    });
+    const translations = new Map(
+      translated.map((job) => [job.id.toString(), job.published_from_crawl?.job_translations[0]]),
+    );
+    const headline = `${copy.headline(jobs.length)}\n\n`;
     const jobBlocks = jobs.map((j) => {
+      const translation = translations.get(j.jobId.toString());
+      const eligibility = j.eligibilityStatus ?? 'NEEDS_CONFIRMATION';
       const lines = [
-        `🌐 ${j.title}`,
-        j.industry ? `行业：${j.industry}` : '',
-        `匹配度：${j.matchScore}`,
-        j.remoteScope ? `远程范围：${j.remoteScope}` : '',
-        `资格：${j.eligibilityStatus ?? 'NEEDS_CONFIRMATION'}`,
-        `薪资：${j.salaryText || '面议'}`,
-        j.sourcePlatform ? `平台：${j.sourcePlatform}` : '',
-        j.matchReason ? `📌 匹配：${j.matchReason}` : '',
-        j.needToConfirm.length ? `⚠️ 确认：${j.needToConfirm.slice(0, 2).join('；')}` : '',
-        j.applicationUrl ? `🔗 ${j.applicationUrl}` : j.sourceUrl ? `🔗 ${j.sourceUrl}` : '',
+        `${copy.modes[j.workMode as keyof typeof copy.modes] ?? '💼'} ${translation?.title ?? j.title}`,
+        (translation?.industry ?? j.industry)
+          ? `${copy.industry}: ${translation?.industry ?? j.industry}`
+          : '',
+        `${copy.score}: ${j.matchScore}`,
+        j.workMode === 'REMOTE' && j.remoteScope
+          ? `${copy.scope}: ${copy.scopes[j.remoteScope as keyof typeof copy.scopes] ?? j.remoteScope}`
+          : '',
+        `${copy.eligibility}: ${copy.eligibilityValues[eligibility as keyof typeof copy.eligibilityValues] ?? copy.eligibilityValues.NEEDS_CONFIRMATION}`,
+        `${copy.salary}: ${translation?.salary_text ?? j.salaryText ?? copy.salaryMissing}`,
+        j.sourcePlatform ? `${copy.platform}: ${j.sourcePlatform}` : '',
+        j.needToConfirm.length ? copy.confirm : '',
+        j.applicationUrl
+          ? `🔗 ${copy.apply}: ${j.applicationUrl}`
+          : j.sourceUrl
+            ? `🔗 ${j.sourceUrl}`
+            : '',
       ].filter(Boolean);
       return lines.join('\n');
     });
@@ -186,6 +299,17 @@ export class RemoteDailyDigestService {
   private todayKey(d: Date): string {
     const pad = (n: number) => String(n).padStart(2, '0');
     return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+  }
+
+  private interleaveJobs(local: DigestJob[], remote: DigestJob[]): DigestJob[] {
+    const jobs: DigestJob[] = [];
+    for (let i = 0; jobs.length < 5 && (i < local.length || i < remote.length); i++) {
+      const localJob = local[i];
+      const remoteJob = remote[i];
+      if (localJob) jobs.push(localJob);
+      if (remoteJob && jobs.length < 5) jobs.push(remoteJob);
+    }
+    return jobs;
   }
 }
 
